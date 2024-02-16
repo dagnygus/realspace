@@ -1,0 +1,39 @@
+<div class="header-container mat-elevation-z6">
+
+  <div class="flex w-full items-center overflow-hidden justify-self-start cursor-pointer"
+       role="link"
+       routerLink="/">
+    <div class="flex flex-row items-center">
+      <img src="assets/logo/realspace_logo_xs.png" alt=""
+           class="logo">
+      <span class="title font-mono font-bold">RealSpace</span>
+    </div>
+  </div>
+
+  <form class="search-box-container relative mat-elevation-z3 rounded-[20px] justify-self-center"
+       [class.search-box-container-expanded]="vm.searchboxExpanded$ | in:cdRef"
+       (ngSubmit)="vm.searchMovieOrToogleSearchboxSize()">
+
+    <div class="absolute top-0 left-[20px] right-[20px] h-full grid items-center justify-items-end">
+      <input #searchboxInput
+             type="text"
+             [formControl]="vm.searchBoxFormControl"
+             class="block w-full max-w-[calc(100%_-_28px)] outline-none bg-transparent border-none">
+    </div>
+
+    <button mat-mini-fab color="accent" class="search-btn">
+      <mat-icon>search</mat-icon>
+    </button>
+
+  </form>
+
+  <div class="menu-btn-container justify-self-end">
+    <button mat-raised-button color="accent" (click)="vm.openSidenav()">
+      <div class="flex items-center">
+        <mat-icon>
+          menu
+        </mat-icon>
+      </div>
+    </button>
+  </div>
+</div>

@@ -1,0 +1,62 @@
+<div class="slider-container"
+     [class.justify-center]="movieListStatusSource | in:cdRef | isEmptyOrError">
+
+  @switch (movieListStatusSource | in:cdRef;) {
+
+    @case (StateStatus.complete) {
+      <div *nzFor="let movie of movieListSource; trackBy: 'id'"
+           class="movie-card mat-elevation-z5"
+           role="region"
+           [routerLink]="'/movie/' + movie.id">
+        <div class="movie-card-image-container">
+          <img class="movie-card-image"
+               alt=""
+               [src]="movie.posterPath | posterSrc"
+               [srcset]="movie.posterPath | posterSrcSet"
+               sizes="(min-width: 400px) 200px, calc(50vw - 4px)">
+        </div>
+        <div class="movie-card-title-container">
+          <h4 class="movie-card-title" [textContent]="movie.title"></h4>
+        </div>
+        <div class="movie-card-footer">
+
+          <div class="flex items-center">
+            <mat-icon class="movie-card-star-icon">star</mat-icon>
+            <span class="movie-card-vote-avarage" [textContent]="movie.voteAvarage"></span>
+          </div>
+
+          <div>
+            <span [textContent]="movie.realeaseDate | yearFromDate"></span>
+          </div>
+      </div>
+    </div>
+    }
+
+    @case (StateStatus.pending) {
+
+      @for (num of range8; track $index) {
+        <div class="movie-card-placeholder placeholder"></div>
+      }
+
+    }
+
+    @case (StateStatus.empty) {
+
+      <div class="mat-elevation-z5 slider-empty-item mx-[8px] rounded-[8px] col-[1/3] flex items-center justify-center">
+        <span>No movies to display</span>
+      </div>
+
+    }
+
+    @case (StateStatus.error) {
+
+      <div class="mat-elevation-z5 slider-empty-item mx-[8px] rounded-[8px] col-[1/3] flex items-center justify-center">
+        <span class="text-red-600">ERROR: Failed to dawnload movies</span>
+      </div>
+
+    }
+
+  }
+
+
+</div>
