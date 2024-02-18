@@ -116,9 +116,7 @@ export class AppViewModel {
   searchMovieOrToogleSearchboxSize(): void {
     if (this._searchboxExpanded && this.searchBoxFormControl.value) {
       this._router.navigateByUrl(`/search/${this.searchBoxFormControl.value}`);
-      this.searchBoxFormControl.reset();
-      this._searchboxExpanded$.next(false);
-      return;
+      this.searchBoxFormControl.reset('');
     }
     this._searchboxExpanded$.next(!this._searchboxExpanded)
   }
