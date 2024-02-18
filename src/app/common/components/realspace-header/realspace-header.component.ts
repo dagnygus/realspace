@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { InPipeModule, NzDetachedViewModule, Priority, initializeComponent } from '../../../noop-zone';
 import { AppViewModel } from '../../../app.vm';
-import { RouterModule } from '@angular/router';
+import { NavigationEnd, NavigationStart, Router, RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { asapScheduler, asyncScheduler, delay, distinctUntilChanged, filter, fromEvent, map, observeOn, skip, subscribeOn } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -34,6 +34,7 @@ export class RealspaceHeaderComponent implements AfterViewInit {
   breakpointObserver = inject(BreakpointObserver);
   destroyRef = inject(DestroyRef);
   platform = inject(Platform);
+  router = inject(Router);
   @ViewChild('searchboxInput', { static: true }) inputRef: ElementRef<HTMLInputElement> | null = null;
 
   ngAfterViewInit(): void {
@@ -62,6 +63,15 @@ export class RealspaceHeaderComponent implements AfterViewInit {
       ).subscribe(() => {
         this.vm.collapseSearchbox();
       });
+
+      this.router.events.pipe(
+        filter((e) => e instanceof NavigationStart),
+        skip(1),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(() => {
+        this.inputRef!.nativeElement.blur();
+      });
     }
+
   }
 }
