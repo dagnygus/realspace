@@ -37,18 +37,18 @@
                class="title-section rounded-[4px] px-[16px] py-[8px]">
 
         <ng-template [nzSwitchCase]="StateStatus.complete">
-          <h3 class="title-heading purple-text" [textContent]="vm.movieDetails.title | uppercase"></h3>
-          <h4 class="subline-haeding teal-text" [textContent]="vm.movieDetails.tagline | uppercase"></h4>
+          <h3 class="title-heading teal-text" [textContent]="vm.movieDetails.title | uppercase"></h3>
+          <h4 class="subline-haeding" [textContent]="vm.movieDetails.tagline | uppercase"></h4>
           <div class="flex justify-between">
             <p class="flex items-center">
               <mat-icon class="star-icon mr-[4px]">star</mat-icon>
-              <span class="teal-text" [textContent]="vm.movieDetails.voteAverage"></span>
+              <span [textContent]="vm.movieDetails.voteAverage"></span>
             </p>
-            <p class="flex items-center teal-text">
+            <p class="flex items-center">
               <mat-icon class="mr-[4px]">schedule</mat-icon>
               <span [textContent]="vm.movieDetails.runtime + ' min'"></span>
             </p>
-            <p class="teal-text flex items-center">
+            <p class="flex items-center">
               <mat-icon class="mr-[4px]">event</mat-icon>
               <span [textContent]="vm.movieDetails.releaseDate | yearFromDate"></span>
             </p>
@@ -147,7 +147,7 @@
       </section>
 
       <section class="related-section p-[8px] mt-[16px]">
-        <h4 class="heading">You mey olso like</h4>
+        <h4 class="heading">YOU MAKE OLSO LIKE</h4>
         <app-movie-slider [movieListSource]="vm.relatedMovies$" [movieListStatusSource]="vm.relatedMoviesStatus$"/>
       </section>
     </div>

@@ -1,5 +1,8 @@
+@use '../../../../colors.scss' as colors;
+
 .heading {
-  color: #D500F9;
+  // color: #D500F9;
+  color: colors.$color-teal-500;
   text-shadow: 1px 2px rgba(0, 0, 0, 0.4);
   font-size: 24px;
   text-align: center;
