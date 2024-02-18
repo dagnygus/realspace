@@ -24,6 +24,7 @@ export class AppViewModel {
 
   constructor(breakpointObserver: BreakpointObserver,
               platform: Platform,
+              nzScheduler: NzScheduler,
               private _router: Router) {
 
     const breakpoint$ = breakpointObserver.observe('(min-width: 1024px)');
@@ -61,6 +62,7 @@ export class AppViewModel {
       )
     ).pipe(
       distinctUntilChanged(),
+      // nzScheduler.switchOn(Priority.immediate),
       tap((value) => this._sidenavOpen = value)
     );
 
@@ -73,6 +75,7 @@ export class AppViewModel {
       )
     ).pipe(
       distinctUntilChanged(),
+      // nzScheduler.switchOn(Priority.immediate),
       tap((value) => this._searchboxExpanded = value)
     );
 
@@ -115,6 +118,6 @@ export class AppViewModel {
       this._router.navigateByUrl(`/search/${this.searchBoxFormControl.value}`);
       this.searchBoxFormControl.reset();
     }
-    this._searchboxExpanded$.next(!this._searchboxExpanded$.value)
+    this._searchboxExpanded$.next(!this._searchboxExpanded)
   }
 }

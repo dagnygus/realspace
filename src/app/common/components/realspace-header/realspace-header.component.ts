@@ -6,7 +6,7 @@ import { InPipeModule, NzDetachedViewModule, Priority, initializeComponent } fro
 import { AppViewModel } from '../../../app.vm';
 import { RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { asapScheduler, asyncScheduler, distinctUntilChanged, filter, fromEvent, map, observeOn, skip, subscribeOn } from 'rxjs';
+import { asapScheduler, asyncScheduler, delay, distinctUntilChanged, filter, fromEvent, map, observeOn, skip, subscribeOn } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Platform } from '@angular/cdk/platform';
@@ -28,6 +28,7 @@ import { Platform } from '@angular/cdk/platform';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RealspaceHeaderComponent implements AfterViewInit {
+
   cdRef = initializeComponent(this, Priority.immediate);
   vm = inject(AppViewModel);
   breakpointObserver = inject(BreakpointObserver);
@@ -36,8 +37,13 @@ export class RealspaceHeaderComponent implements AfterViewInit {
   @ViewChild('searchboxInput', { static: true }) inputRef: ElementRef<HTMLInputElement> | null = null;
 
   ngAfterViewInit(): void {
+
+    const pradicateFn = () =>
+      this.vm.searchBoxFormControl.value === '' &&
+      !this.breakpointObserver.isMatched('(min-width: 562px)')
+
     this.vm.searchboxExpanded$.pipe(
-      filter(() => this.vm.searchBoxFormControl.value === '' && !this.breakpointObserver.isMatched('(min-width: 562px)')),
+      filter(pradicateFn),
       skip(1),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe((value) => {
@@ -50,12 +56,12 @@ export class RealspaceHeaderComponent implements AfterViewInit {
 
     if (this.platform.isBrowser) {
       fromEvent(this.inputRef!.nativeElement, 'blur').pipe(
-        observeOn(asyncScheduler),
         filter(() => this.vm.isSearchboxExpanded()),
+        observeOn(asyncScheduler),
         takeUntilDestroyed(this.destroyRef)
       ).subscribe(() => {
         this.vm.collapseSearchbox();
-      })
+      });
     }
   }
 }
