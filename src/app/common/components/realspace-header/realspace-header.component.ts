@@ -63,14 +63,6 @@ export class RealspaceHeaderComponent implements AfterViewInit {
       ).subscribe(() => {
         this.vm.collapseSearchbox();
       });
-
-      this.router.events.pipe(
-        filter((e) => e instanceof NavigationStart),
-        skip(1),
-        takeUntilDestroyed(this.destroyRef)
-      ).subscribe(() => {
-        this.inputRef!.nativeElement.blur();
-      });
     }
 
   }
