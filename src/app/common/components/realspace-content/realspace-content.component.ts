@@ -30,10 +30,18 @@ export class RealspaceContentComponent {
   vm = inject(AppViewModel);
 
   constructor(router: Router, scrollable: CdkScrollable) {
+
     router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
       subscribeOn(asapScheduler),
       takeUntilDestroyed()
     ).subscribe(() => scrollable.scrollTo({ top: 0,  behavior: 'smooth' }));
+
+    scrollable.elementScrolled().pipe(
+      filter(() => this.vm.isSearchboxExpanded()),
+      takeUntilDestroyed()
+    ).subscribe(() => this.vm.collapseSearchbox());
+
   }
+
 }
