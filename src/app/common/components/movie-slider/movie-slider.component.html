@@ -1,5 +1,6 @@
 <div class="slider-container"
-     [class.justify-center]="movieListStatusSource | in:cdRef | isEmptyOrError">
+     [class.justify-center]="movieListStatusSource | in:cdRef | isEmptyOrError"
+     #container>
 
   @switch (movieListStatusSource | in:cdRef;) {
 

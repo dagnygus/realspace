@@ -98,7 +98,7 @@
 
       <section class="cast-section p-[8px]">
         <h4>THE CAST:</h4>
-        <div class="cast-slider pb-[4px]" [nzSwitch]="vm.castStateStatus$">
+        <div horizontalScroll class="cast-slider pb-[4px]" [nzSwitch]="vm.castStateStatus$">
 
           <ng-template [nzSwitchCase]="StateStatus.complete">
             <a [routerLink]="null" *nzFor="let person of vm.cast$; trackBy: 'id'">
@@ -125,7 +125,7 @@
 
       <section class="clips-section p-[8px] mt-[16px]">
         <h4 *nzIf="vm.hasVideoLinks$" class="heading">TRAILERS AND CLIPS</h4>
-        <div class="clips-slider" [nzSwitch]="vm.videoLinksStatus$">
+        <div horizontalScroll class="clips-slider" [nzSwitch]="vm.videoLinksStatus$">
 
           <ng-template [nzSwitchCase]="StateStatus.complete" let-scCdRef>
             @if(vm.hasVideoLinks$ | in:scCdRef) {

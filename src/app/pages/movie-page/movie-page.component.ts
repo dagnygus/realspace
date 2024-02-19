@@ -11,6 +11,7 @@ import { MovieSliderComponent } from '../../common/components/movie-slider/movie
 import { ProfileSrcPipe, ProfileSrcSetPipe } from '../../common/pipes/profile-src.pipe';
 import { ImageSrcPipe } from '../../common/pipes/image-src.pipe';
 import { PosterSrcPipe, PosterSrcSetPipe } from '../../common/pipes/poster-src.pipe';
+import { HorizonlaScrollDirective } from '../../common/directives/horizontal-scroll.directive';
 
 const _RANGE_6 = [...Array(6).keys()];
 const _RANGE_7 = [...Array(7).keys()];
@@ -27,6 +28,7 @@ const _RANGE_9 = [...Array(9).keys()];
     PosterSrcPipe,
     PosterSrcSetPipe,
     YearFromDatePipe,
+    HorizonlaScrollDirective,
     MatIconModule,
     NzLetModule,
     NzForModule,
