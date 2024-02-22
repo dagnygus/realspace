@@ -52,13 +52,13 @@ export class MovieSliderComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     if (this.platform.isBrowser) {
       const mouseEnter$ = fromEvent(this.containerElRef!.nativeElement, 'mouseenter');
-      const mouseLeave$ = fromEvent(this.containerElRef!.nativeElement, 'mouseleave');
+      const mouseLeaveOnce$ = fromEvent(this.containerElRef!.nativeElement, 'mouseleave').pipe(take(1));
       const wheel$ = fromEvent<WheelEvent>(this.containerElRef!.nativeElement, 'wheel');
 
       merge(mouseEnter$, wheel$).pipe(
-        debounceTime(700),
+        debounceTime(500),
         switchMap(() => wheel$.pipe(
-          takeUntil(mouseLeave$.pipe(take(1))),
+          takeUntil(mouseLeaveOnce$),
         ))
       ).pipe(
         takeUntilDestroyed(this.destroyRef)

@@ -14,13 +14,13 @@ export class HorizonlaScrollDirective {
   ) {
     if (platform.isBrowser) {
       const mouseEnter$ = fromEvent(hostElRef.nativeElement, 'mouseenter');
-      const mouseLeave$ = fromEvent(hostElRef.nativeElement, 'mouseleave');
+      const mouseLeaveOnce$ = fromEvent(hostElRef.nativeElement, 'mouseleave').pipe(take(1));
       const wheel$ = fromEvent<WheelEvent>(hostElRef.nativeElement, 'wheel');
 
       merge(mouseEnter$, wheel$).pipe(
-        debounceTime(700),
+        debounceTime(500),
         switchMap(() => wheel$.pipe(
-          takeUntil(mouseLeave$.pipe(take(1))),
+          takeUntil(mouseLeaveOnce$),
         ))
       ).pipe(
         takeUntilDestroyed()
