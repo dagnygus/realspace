@@ -1,7 +1,7 @@
-import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, EventEmitter, Host, Inject, Input, OnDestroy, OnInit, Optional, Output, PLATFORM_ID, TemplateRef, ViewContainerRef, ViewRef } from "@angular/core";
+import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, EventEmitter, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, Output, PLATFORM_ID, Signal, TemplateRef, ViewContainerRef, ViewRef, isSignal } from "@angular/core";
 import { BehaviorSubject, NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, distinctUntilChanged, of, switchAll, tap } from "rxjs";
 import { NZ_IF_CONFIG, NZ_QUERY_VIEW, NzIfConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
-import { Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isPromiseLike, isSubscribable, NzScheduler } from "../../core";
+import { Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isPromiseLike, isSubscribable, NzScheduler, fromSignal } from "../../core";
 
 @Directive({
   selector: '[nzIf]', standalone: true
@@ -29,9 +29,13 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
   private _queryViewCheckRequested = false;
   private _lockNzIfChangeDetection = false;
 
-  @Input() set nzIf(value: Observable<T> | Subscribable<T> | PromiseLike<T> | Promise<T> | T) {
+  @Input() set nzIf(value: Signal<T> | Observable<T> | Subscribable<T> | PromiseLike<T> | Promise<T> | T) {
     this._dirty = true;
-    if (isSubscribable(value)) {
+    if (isSignal(value)) {
+      this._nonobservable$ = null;
+      this._valueRecived = true;
+      this._nzIf$.next(fromSignal(value, this._injector));
+    } else if (isSubscribable(value)) {
       this._nonobservable$ = null;
       this._valueRecived = false
       this._nzIf$.next(fromSubscribable(value));
@@ -47,35 +51,43 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
     }
   }
 
-  @Input() set nzIfThen(thenTemplateRef: Observable<TemplateRef<NzIfContext<T>>> | Subscribable<TemplateRef<NzIfContext<T>>> | TemplateRef<NzIfContext<T>>) {
+  @Input() set nzIfThen(thenTemplateRef: Signal<TemplateRef<NzIfContext<T>>> | Observable<TemplateRef<NzIfContext<T>>> | Subscribable<TemplateRef<NzIfContext<T>>> | TemplateRef<NzIfContext<T>>) {
     this._dirty = true;
-    if (isSubscribable(thenTemplateRef)) {
+    if (isSignal(thenTemplateRef)) {
+      this._thenTemplateRef$$.next(fromSignal(thenTemplateRef, this._injector))
+    } else if (isSubscribable(thenTemplateRef)) {
       this._thenTemplateRef$$.next(fromSubscribable(thenTemplateRef));
     } else {
       this._thenTemplateRef$$.next(of(thenTemplateRef));
     }
   }
 
-  @Input() set nzIfElse(elseTemplateRef: Observable<TemplateRef<NzIfContext<T>>> | Subscribable<TemplateRef<NzIfContext<T>>> | TemplateRef<NzIfContext<T>>) {
+  @Input() set nzIfElse(elseTemplateRef: Signal<TemplateRef<NzIfContext<T>>> | Observable<TemplateRef<NzIfContext<T>>> | Subscribable<TemplateRef<NzIfContext<T>>> | TemplateRef<NzIfContext<T>>) {
     this._dirty = true;
-    if (isSubscribable(elseTemplateRef)) {
+    if (isSignal(elseTemplateRef)) {
+      this._elseTemplateRef$$.next(fromSignal(elseTemplateRef, this._injector))
+    } else if (isSubscribable(elseTemplateRef)) {
       this._elseTemplateRef$$.next(fromSubscribable(elseTemplateRef));
     } else {
       this._elseTemplateRef$$.next(of(elseTemplateRef));
     }
   }
 
-  @Input() set nzIfPriority(priority: Observable<Priority> | Subscribable<Priority> | Priority) {
-    if (isSubscribable(priority)) {
+  @Input() set nzIfPriority(priority: Signal<Priority> | Observable<Priority> | Subscribable<Priority> | Priority) {
+    if (isSignal(priority)) {
+      this._priority$$.next(fromSignal(priority, this._injector))
+    } else if (isSubscribable(priority)) {
       this._priority$$.next(fromSubscribable(priority));
     } else {
       this._priority$$.next(of(priority));
     }
   }
 
-  @Input() set nzIfOptimized(optimized: Observable<boolean> | Subscribable<boolean> | boolean) {
+  @Input() set nzIfOptimized(optimized: Signal<boolean> | Observable<boolean> | Subscribable<boolean> | boolean) {
     this._dirty = true;
-    if (isSubscribable(optimized)) {
+    if (isSignal(optimized)) {
+      this._optimized$$.next(fromSignal(optimized, this._injector))
+    } else if (isSubscribable(optimized)) {
       this._optimized$$.next(fromSubscribable(optimized));
     } else {
       this._optimized$$.next(of(optimized));
@@ -90,7 +102,8 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
               private _viewContainerRef: ViewContainerRef,
               @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
               @Optional() @Inject(NZ_IF_CONFIG) config: NzIfConfiguration | null,
-              private _nzScheduler: NzScheduler) {
+              private _nzScheduler: NzScheduler,
+              private _injector: Injector) {
 
     assertNoopZoneEnviroment();
     this._thenTemplateRef = templateRef;
@@ -168,10 +181,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
       this._subscription.add(innerNzIf$.pipe(
         switchAll()
       ).subscribe((value) => {
-        // if (this._queryView && this._queryView.isChecking() && this._queryViewCheckRequested) {
-        //   this._queryViewCheckRequested = false;
-        //   return;
-        // }
         if (this._nonobservable$ && this._optimized) { return; }
 
         this._valueRecived = true;

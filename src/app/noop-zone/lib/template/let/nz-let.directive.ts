@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Input, OnDestroy, OnInit, Optional, PLATFORM_ID, TemplateRef, ViewContainerRef } from "@angular/core";
+import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, PLATFORM_ID, Signal, TemplateRef, ViewContainerRef, isSignal } from "@angular/core";
 import { NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, filter, of, switchAll } from "rxjs";
-import { Priority, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isSubscribable, assertNoopZoneEnviroment, NzScheduler } from "../../core";
+import { Priority, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isSubscribable, assertNoopZoneEnviroment, NzScheduler, fromSignal } from "../../core";
 import { NZ_LET_CONFIG, NZ_QUERY_VIEW, NzLetConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
 
 @Directive({ selector: '[nzLet]', standalone: true })
@@ -21,9 +21,12 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
   private _lockNzLetChangeDetection = false;
   private _syncCreation?: boolean;
 
-  @Input() set nzLet(nzLet: Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T>) {
-    if (isSubscribable(nzLet)) {
-      this._nonobservable$ = null
+  @Input() set nzLet(nzLet: Signal<T> | Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T>) {
+    if (isSignal(nzLet)) {
+      this._nonobservable$ = null;
+      this._nzLet$$.next(fromSignal(nzLet, this._injector));
+    } else if (isSubscribable(nzLet)) {
+      this._nonobservable$ = null;
       this._nzLet$$.next(fromSubscribable(nzLet));
     } else {
       this._nonobservable$ = fromPromiseLike(nzLet);
@@ -31,24 +34,30 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
     }
   }
 
-  @Input() set nzLetPriority(priority: Observable<Priority> | Subscribable<Priority> | Priority) {
-    if (isSubscribable(priority)) {
+  @Input() set nzLetPriority(priority: Signal<Priority> | Observable<Priority> | Subscribable<Priority> | Priority) {
+    if (isSignal(priority)) {
+      this._priority$$.next(fromSignal(priority, this._injector))
+    } else if (isSubscribable(priority)) {
       this._priority$$.next(fromSubscribable(priority));
     } else {
       this._priority$$.next(of(priority));
     }
   }
 
-  @Input() set nzLetDetach(detach: Observable<boolean> | Subscribable<boolean> | boolean) {
-    if (isSubscribable(detach)) {
+  @Input() set nzLetDetach(detach: Signal<boolean> | Observable<boolean> | Subscribable<boolean> | boolean) {
+    if (isSignal(detach)) {
+      this._detach$$.next(fromSignal(detach, this._injector))
+    } else if (isSubscribable(detach)) {
       this._detach$$.next(fromSubscribable(detach));
     } else {
       this._detach$$.next(of(detach));
     }
   }
 
-  @Input() set nzLetOptimized(optimized: Observable<boolean> | boolean) {
-    if (isSubscribable(optimized)) {
+  @Input() set nzLetOptimized(optimized: Signal<boolean> | Observable<boolean> | Subscribable<boolean> | boolean) {
+    if (isSignal(optimized)) {
+      this._optimized$$.next(fromSignal(optimized, this._injector))
+    } else if (isSubscribable(optimized)) {
       this._optimized$$.next(fromSubscribable(optimized));
     } else {
       this._optimized$$.next(of(optimized));
@@ -62,7 +71,8 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
               private _changeDetectorRef: ChangeDetectorRef,
               @Optional() @Inject(NZ_LET_CONFIG) config: NzLetConfiguration | null,
               @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              private _nzScheduler: NzScheduler) {
+              private _nzScheduler: NzScheduler,
+              private _injector: Injector) {
 
     assertNoopZoneEnviroment();
     const defaultPriority = config?.defaultPriority ?? Priority.normal;

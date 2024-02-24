@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Directive, DoCheck, EventEmitter, Host, Inject, Input, OnDestroy, OnInit, Optional, Output, PLATFORM_ID, TemplateRef, ViewContainerRef, ViewRef } from "@angular/core";
+import { ChangeDetectorRef, Directive, DoCheck, EventEmitter, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, Output, Signal, TemplateRef, ViewContainerRef, ViewRef, isSignal } from "@angular/core";
 import { Observable, ReplaySubject, Subject, Subscribable, Subscription, of, switchAll } from "rxjs";
-import { NzScheduler, Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, fromPromiseLike, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
+import { NzScheduler, Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, fromPromiseLike, fromSignal, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
 import { NZ_QUERY_VIEW, NZ_SWITCH_CONFIG, NzSwitchConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
 import { DefaultNzContext } from "../utils/utils";
 
@@ -9,7 +9,7 @@ interface CaseView<T> {
 }
 
 @Directive({ selector: '[nzSwitch]', standalone: true })
-export class NzSwitchDirective<T extends object | number | boolean | string> implements DoCheck, OnDestroy {
+export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
 
   private _subscription = new Subscription();
   private _nzSwitch$$ = new ReplaySubject<Observable<T>>(1);
@@ -33,8 +33,11 @@ export class NzSwitchDirective<T extends object | number | boolean | string> imp
   readonly onSwitch = this._nzSwithc$.asObservable();
 
   @Input()
-  set nzSwitch(nzSwitch: Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T> | T) {
-    if (isSubscribable(nzSwitch)) {
+  set nzSwitch(nzSwitch: Signal<T> | Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T> | T) {
+    if (isSignal(nzSwitch)) {
+      this._noonobservable$ = null;
+      this._nzSwitch$$.next(fromSignal(nzSwitch, this._injector));
+    } else if (isSubscribable(nzSwitch)) {
       this._noonobservable$ = null;
       this._nzSwitch$$.next(fromSubscribable(nzSwitch));
     } else {
@@ -47,8 +50,10 @@ export class NzSwitchDirective<T extends object | number | boolean | string> imp
   }
 
   @Input()
-  set priority(priority: Observable<Priority> | Subscribable<Priority> | Priority) {
-    if (isSubscribable(priority)) {
+  set priority(priority: Signal<Priority> | Observable<Priority> | Subscribable<Priority> | Priority) {
+    if (isSignal(priority)) {
+      this._priority$$.next(fromSignal(priority, this._injector))
+    } else if (isSubscribable(priority)) {
       this._priority$$.next(fromSubscribable(priority));
     } else {
       this._priority$$.next(of(priority));
@@ -56,8 +61,10 @@ export class NzSwitchDirective<T extends object | number | boolean | string> imp
   }
 
   @Input()
-  set optimized(optimized: Observable<boolean> | Subscribable<boolean> | boolean) {
-    if (isSubscribable(optimized)) {
+  set optimized(optimized: Signal<boolean> | Observable<boolean> | Subscribable<boolean> | boolean) {
+    if (isSignal(optimized)) {
+      this._optimized$$.next(fromSignal(optimized, this._injector))
+    } else if (isSubscribable(optimized)) {
       this._optimized$$.next(fromSubscribable(optimized));
     } else {
       this._optimized$$.next(of(optimized));
@@ -68,8 +75,8 @@ export class NzSwitchDirective<T extends object | number | boolean | string> imp
 
   constructor(@Optional() @Inject(NZ_SWITCH_CONFIG) config: NzSwitchConfiguration | null,
               @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              @Inject(PLATFORM_ID) platformId: object,
-              private _nzScheduler: NzScheduler) {
+              private _nzScheduler: NzScheduler,
+              private _injector: Injector) {
     assertNoopZoneEnviroment();
     const defaultPriority = config?.defaultPriority ?? Priority.normal;
     const optimized = config?.optimized ?? false;

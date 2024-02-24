@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Inject, OnDestroy, Optional, Pipe, PipeTransform } from "@angular/core";
+import { ChangeDetectorRef, EffectRef, Inject, Injector, OnDestroy, Optional, Pipe, PipeTransform, Signal, effect, isSignal, untracked } from "@angular/core";
 import { Priority, assertNoopZoneEnviroment, detectChanges, isPromiseLike, isSubscribable } from "../../core";
 import { Observable, Subscribable, Unsubscribable } from "rxjs";
 import { NZ_IN_PIPE_DEFAULT_PRIORITY } from "../injection-tokens/injection-tokens";
@@ -37,6 +37,27 @@ class SubscribableStrategy implements SubscriptionStrategy {
   dispose(): void {
     if (this._subscription) { this._subscription.unsubscribe(); }
   }
+}
+
+class SignalStrategy implements SubscriptionStrategy {
+
+  private _effectRef: EffectRef | null = null;
+  private _notBinded = true;
+
+  constructor(private _injector: Injector) {}
+
+  attach(target: Signal<any>, callback: (value: any) => void): void {
+    this._effectRef = untracked(() => effect(() => {
+      callback(target());
+      this._notBinded = false;
+    }, { injector: this._injector, manualCleanup: true }));
+    if (this._notBinded) {
+      callback(target());
+    }
+  }
+  dispose(): void {
+    if (this._effectRef) { this._effectRef.destroy(); }
+  }
 
 }
 
@@ -45,16 +66,19 @@ export class InPipe implements PipeTransform, OnDestroy {
 
   private _subscriptionStrategy: SubscriptionStrategy | null = null;
   private _latestValue: any;
+  private _target: any = null;;
 
-  constructor(@Optional() @Inject(NZ_IN_PIPE_DEFAULT_PRIORITY) private _defaultPriority: Priority | null) {
+  constructor(@Optional() @Inject(NZ_IN_PIPE_DEFAULT_PRIORITY) private _defaultPriority: Priority | null,
+              private _injector: Injector) {
     assertNoopZoneEnviroment();
   }
 
-  transform<T>(value: Observable<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
-  transform<T>(value: Subscribable<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
-  transform<T>(value: PromiseLike<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
-  transform<T>(value: Promise<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
-  transform<T>(value: any, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined {
+  transform<T>(target: Observable<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
+  transform<T>(target: Subscribable<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
+  transform<T>(target: PromiseLike<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
+  transform<T>(target: Promise<T>, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined;
+  transform<T>(target: Signal<T>, cdRef: ChangeDetectorRef, priority?: Priority): T
+  transform<T>(target: any, cdRef: ChangeDetectorRef, priority?: Priority): T | null | undefined {
 
     if (typeof ngDevMode === 'undefined' || ngDevMode) {
       if (cdRef == null) {
@@ -63,42 +87,42 @@ export class InPipe implements PipeTransform, OnDestroy {
     }
 
     priority = priority || this._defaultPriority || Priority.normal;
-    this._subscribe(value, cdRef, priority);
 
+    this._subscribe(target, cdRef, priority);
 
     return this._latestValue;
   }
 
   private _subscribe(target: any, cdRef: ChangeDetectorRef, priority: Priority): void {
 
+    if (this._target === target) {
+      return;
+    }
+
+    this._target = target;
+
+    if (this._subscriptionStrategy) {
+      this._subscriptionStrategy.dispose();
+    }
+
+    this._getStrategy(target).attach(target, (value) => {
+      this._latestValue = value;
+      detectChanges(cdRef, priority);
+    });
+  }
+
+  private _getStrategy(target: any): SubscriptionStrategy {
+    if (isSignal(target)) {
+      return new SignalStrategy(this._injector);
+    }
     if (isSubscribable(target)) {
-
-      if (!(this._subscriptionStrategy && this._subscriptionStrategy instanceof SubscribableStrategy)) {
-        if (this._subscriptionStrategy) { this._subscriptionStrategy.dispose(); }
-        this._subscriptionStrategy = new SubscribableStrategy();
-        this._subscriptionStrategy.attach(target, (value) => {
-          this._latestValue = value;
-          detectChanges(cdRef, priority);
-        });
-
-      }
-
-      return;
+      return new SubscribableStrategy();
     }
-
     if (isPromiseLike(target)) {
-
-      if (!(this._subscriptionStrategy && this._subscriptionStrategy instanceof PromiseLikeStrategy)) {
-        if (this._subscriptionStrategy) { this._subscriptionStrategy.dispose(); }
-        this._subscriptionStrategy = new PromiseLikeStrategy();
-        this._subscriptionStrategy.attach(target, (value) => {
-          this._latestValue = value
-          detectChanges(cdRef, priority);
-        });
-      }
-
-      return;
+      return new PromiseLikeStrategy()
     }
+
+    throw new Error('InPipe: Invalid subscrition target!');
   }
 
   ngOnDestroy(): void {

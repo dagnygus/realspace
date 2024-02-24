@@ -1,6 +1,6 @@
-import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Input, IterableChangeRecord, NgIterable, OnDestroy, OnInit, Optional, PLATFORM_ID, TemplateRef, TrackByFunction, ViewContainerRef, inject } from "@angular/core";
+import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Injector, Input, IterableChangeRecord, NgIterable, OnDestroy, OnInit, Optional, PLATFORM_ID, Signal, TemplateRef, TrackByFunction, ViewContainerRef, inject, isSignal } from "@angular/core";
 import { BehaviorSubject, NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, distinctUntilChanged, map, merge, of, switchAll } from "rxjs";
-import { IterableChangeObserver, IterableChangeTracker, IterableChangeTrackers, Priority, assertNoopZoneEnviroment, detectChangesSync, fromPromiseLike, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
+import { IterableChangeObserver, IterableChangeTracker, IterableChangeTrackers, Priority, assertNoopZoneEnviroment, detectChangesSync, fromPromiseLike, fromSignal, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
 import { NZ_FOR_CONFIG, NZ_QUERY_VIEW, NzForConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
 import { isPlatformServer } from "@angular/common";
 
@@ -351,10 +351,14 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
   private _lockNzForChangeDetection = false;
 
   @Input()
-  set nzForOf(nzForOf: Observable<NzForOfInput<T,U>> | Subscribable<NzForOfInput<T,U>> | Promise<NzForOfInput<T,U>> | PromiseLike<NzForOfInput<T,U>> | NzForOfInput<T,U>) {
-    if (isSubscribable(nzForOf)) {
+  set nzForOf(nzForOf: Signal<NzForOfInput<T,U>> | Observable<NzForOfInput<T,U>> | Subscribable<NzForOfInput<T,U>> | Promise<NzForOfInput<T,U>> | PromiseLike<NzForOfInput<T,U>> | NzForOfInput<T,U>) {
+    if (isSignal(nzForOf)) {
       this._nonobservable$ = null;
-      this._nzForView.nonobservable = false
+      this._nzForView.nonobservable = false;
+      this._nzForOf$$.next(fromSignal(nzForOf, this._injector));
+    } else if (isSubscribable(nzForOf)) {
+      this._nonobservable$ = null;
+      this._nzForView.nonobservable = false;
       this._nzForOf$$.next(fromSubscribable(nzForOf));
     } else {
       if (isPromiseLike(nzForOf)) {
@@ -368,8 +372,10 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
   }
 
   @Input()
-  set nzForOfOptimized(optimized: Observable<boolean> | Subscribable<boolean> | boolean) {
-    if (isSubscribable(optimized)) {
+  set nzForOfOptimized(optimized: Signal<boolean> | Observable<boolean> | Subscribable<boolean> | boolean) {
+    if (isSignal(optimized)) {
+      this._optimized$$.next(fromSignal(optimized, this._injector))
+    } else if (isSubscribable(optimized)) {
       this._optimized$$.next(fromSubscribable(optimized));
     } else {
       this._optimized$$.next(of(optimized));
@@ -386,8 +392,10 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
   }
 
   @Input()
-  set nzForPriority(priority: Observable<Priority> | Subscribable<Priority> | Priority) {
-    if (isSubscribable(priority)) {
+  set nzForPriority(priority: Signal<Priority> | Observable<Priority> | Subscribable<Priority> | Priority) {
+    if (isSignal(priority)) {
+      this._priority$$.next(fromSignal(priority, this._injector));
+    } else if (isSubscribable(priority)) {
       this._priority$$.next(fromSubscribable(priority));
     } else {
       this._priority$$.next(of(priority));
@@ -399,7 +407,8 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
 
   constructor(@Inject(PLATFORM_ID) platformId: object,
               @Host() @Optional() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              @Optional() @Inject(NZ_FOR_CONFIG) config: NzForConfiguration | null) {
+              @Optional() @Inject(NZ_FOR_CONFIG) config: NzForConfiguration | null,
+              private _injector: Injector) {
     assertNoopZoneEnviroment();
 
     const nzForOf$ = this._nzForOf$$.pipe(switchAll());

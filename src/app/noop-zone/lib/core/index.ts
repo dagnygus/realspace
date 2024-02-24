@@ -7,7 +7,8 @@ export * from './src/scheduler/priority';
 export { isSubscribable,
          isPromiseLike,
          fromSubscribable,
-         fromPromiseLike } from './src/utils/utils';
+         fromPromiseLike,
+         fromSignal } from './src/utils/utils';
 export * from './src/rxjs-interop/rxjs-iterop';
 export { initialNoopZoneTestingEnviroment,
          disposeNoopZoneTestingEnviroment,
