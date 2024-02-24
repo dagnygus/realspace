@@ -1,6 +1,6 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, Input, OnDestroy, Pipe, PipeTransform, Renderer2, ViewChild, inject } from '@angular/core';
 import { InPipeModule, NzForModule, initializeComponent } from '../../../noop-zone';
-import { Observable, Subject, debounceTime, fromEvent, merge, switchMap, take, takeUntil } from 'rxjs';
+import { Observable, Subject, debounceTime, filter, fromEvent, merge, switchMap, take, takeUntil } from 'rxjs';
 import { MovieListStateItem, StateStatus } from '../../../models/models';
 import { MatIconModule } from '@angular/material/icon';
 import { YearFromDatePipe } from '../../pipes/year-from-date.pipe';
@@ -55,8 +55,19 @@ export class MovieSliderComponent implements AfterViewInit {
       const mouseLeave$ = fromEvent(this.containerElRef!.nativeElement, 'mouseleave');
       const wheel$ = fromEvent<WheelEvent>(this.containerElRef!.nativeElement, 'wheel');
 
+      let mouseover = false;
+
+      mouseEnter$.pipe(
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(() => mouseover = true);
+
+      mouseLeave$.pipe(
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(() => mouseover = false);
+
       merge(mouseEnter$, wheel$).pipe(
         debounceTime(500),
+        filter(() => mouseover),
         switchMap(() => wheel$.pipe(
           takeUntil(mouseLeave$.pipe(take(1))),
         ))

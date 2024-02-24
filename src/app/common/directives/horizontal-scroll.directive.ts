@@ -1,7 +1,7 @@
 import { Platform } from "@angular/cdk/platform";
 import { Directive, ElementRef } from "@angular/core";
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { debounceTime, fromEvent, merge, switchMap, take, takeUntil } from "rxjs";
+import { debounceTime, filter, fromEvent, merge, switchMap, take, takeUntil } from "rxjs";
 
 @Directive({
   selector: '[horizontalScroll]',
@@ -17,8 +17,19 @@ export class HorizonlaScrollDirective {
       const mouseLeave$ = fromEvent(hostElRef.nativeElement, 'mouseleave');
       const wheel$ = fromEvent<WheelEvent>(hostElRef.nativeElement, 'wheel');
 
+      let mouseover = false;
+
+      mouseEnter$.pipe(
+        takeUntilDestroyed()
+      ).subscribe(() => mouseover = true);
+
+      mouseLeave$.pipe(
+        takeUntilDestroyed()
+      ).subscribe(() => mouseover = false);
+
       merge(mouseEnter$, wheel$).pipe(
         debounceTime(500),
+        filter(() => mouseover),
         switchMap(() => wheel$.pipe(
           takeUntil(mouseLeave$.pipe(take(1))),
         ))
