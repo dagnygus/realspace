@@ -1,7 +1,8 @@
 import { Priority } from '../../core';
-import { InjectionToken, ValueProvider } from "@angular/core";
+import { FactoryProvider, InjectOptions, InjectionToken, ValueProvider, inject } from "@angular/core";
 import { Observable } from 'rxjs';
 
+const _injectOptions: InjectOptions & { optional: true } = { optional: true, skipSelf: true }
 
 export interface QueryView {
   readonly onCheckRequested: Observable<void>;
@@ -23,10 +24,6 @@ export interface QueryViewItem {
   onQueryViewCheckAborted(): void;
 }
 
-// export interface DetachedView {
-//   onDoCheck: Observable<void>;
-//   reattachOnce(): void;
-// }
 
 export interface NzIfConfiguration {
   defaultPriority?: Priority;
@@ -85,36 +82,116 @@ export const NZ_LOCAL_VIEW_CONFIG = new InjectionToken<NzLocalViewConfiguration>
 export const NZ_IN_PIPE_DEFAULT_PRIORITY = new InjectionToken<Priority>('NZ_IN_PIPE_DEFAULT_PRIORITY');
 // export const NZ_LAZY_VIEW_CONFIG = new InjectionToken<NzQueryViewConfiguration>('NZ_LAZY_VIEW_CONFIGURATION');
 
-export function provideNzIfConfiguration(config: NzIfConfiguration): ValueProvider {
-  return { provide: NZ_IF_CONFIG, useValue: config };
+export function provideNzIfConfiguration(config: NzIfConfiguration): FactoryProvider {
+  return {
+    provide: NZ_IF_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_IF_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzLetConfiguration(config: NzLetConfiguration): ValueProvider {
-  return { provide: NZ_LET_CONFIG, useValue: config };
+export function provideNzLetConfiguration(config: NzLetConfiguration): FactoryProvider {
+  return {
+    provide: NZ_LET_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_LET_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzDetachedViewConfiguration(config: NzDetachedViewConfiguration): ValueProvider {
-  return { provide: NZ_DETACHED_VIEW_CONFIG, useValue: config };
+export function provideNzDetachedViewConfiguration(config: NzDetachedViewConfiguration): FactoryProvider {
+  return {
+    provide: NZ_DETACHED_VIEW_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_DETACHED_VIEW_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzQueryViewConfiguration(config: NzQueryViewConfiguration): ValueProvider {
-  return { provide: NZ_QUERY_VIEW_CONFIG, useValue: config };
+export function provideNzQueryViewConfiguration(config: NzQueryViewConfiguration): FactoryProvider {
+  return {
+    provide: NZ_QUERY_VIEW_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_QUERY_VIEW_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzForConfiguration(config: NzForConfiguration): ValueProvider {
-  return { provide: NZ_FOR_CONFIG, useValue: config };
+export function provideNzForConfiguration(config: NzForConfiguration): FactoryProvider {
+  return {
+    provide: NZ_FOR_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_FOR_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzSwitchConfiguration(config: NzSwitchConfiguration): ValueProvider {
-  return { provide: NZ_SWITCH_CONFIG, useValue: config };
+export function provideNzSwitchConfiguration(config: NzSwitchConfiguration): FactoryProvider {
+  return {
+    provide: NZ_SWITCH_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_SWITCH_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
-export function provideNzLocalViewConfiguration(config: NzLocalViewConfiguration): ValueProvider {
-  return { provide: NZ_LOCAL_VIEW_CONFIG, useValue: config }
+export function provideNzLocalViewConfiguration(config: NzLocalViewConfiguration): FactoryProvider {
+  return {
+    provide: NZ_LOCAL_VIEW_CONFIG,
+    useFactory: () => {
+      const currentConfig = inject(NZ_LOCAL_VIEW_CONFIG, _injectOptions);
+
+      if (currentConfig) {
+        return { ...currentConfig, ...config };
+      }
+
+      return config;
+    }
+  };
 }
 
 export function inPipeDefaultPriority(priority: Priority): ValueProvider {
-  return { provide: NZ_IN_PIPE_DEFAULT_PRIORITY, useValue: priority }
+  return {
+    provide: NZ_IN_PIPE_DEFAULT_PRIORITY,
+    useValue: priority
+  };
 }
 
 // export function provideNzLazyViewConfiguration(config: NzLazyViewConfiguration): ValueProvider {

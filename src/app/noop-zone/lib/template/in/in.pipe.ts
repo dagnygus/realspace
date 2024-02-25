@@ -119,7 +119,7 @@ export class InPipe implements PipeTransform, OnDestroy {
       return new SubscribableStrategy();
     }
     if (isPromiseLike(target)) {
-      return new PromiseLikeStrategy()
+      return new PromiseLikeStrategy();
     }
 
     throw new Error('InPipe: Invalid subscrition target!');
