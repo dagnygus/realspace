@@ -3,16 +3,14 @@ import { BrowserModule } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSidenavModule } from '@angular/material/sidenav';
-import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLocalViewModule, Priority, inPipeDefaultPriority, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration } from './noop-zone';
+import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLocalViewModule, Priority, inPipeDefaultPriority, patchNgNoopZoneForAngularCdk, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration } from './noop-zone';
 import { RealspaceContentComponent } from './common/components/realspace-content/realspace-content.component';
-import { patchNgZoneForAngularMaterial } from './utils/patch-ngzone-for-noop-zone';
 import { RealspaceSidenavContentComponent } from './common/components/realspace-sidenav-content/realspace-sidenav-content.component';
-import { StoreModule, provideStore } from '@ngrx/store';
-import { EffectsModule, provideEffects } from '@ngrx/effects';
+import { provideStore } from '@ngrx/store';
+import { provideEffects } from '@ngrx/effects';
 import { StoreRouterConnectingModule, routerReducer } from '@ngrx/router-store';
 import { NZ_LET_CONFIG, NZ_FOR_CONFIG, NZ_DETACHED_VIEW_CONFIG } from './utils/constants';
 import { CustomRouterSerializer } from './state/router/router-serializer';
-import { AppState } from './models/models';
 import { nowPlayingMoviesReducer } from './state/now-playing-movie-list/reducer';
 import { popularMoviesReducer } from './state/popular-movie-list/reducer';
 import { topRatedMoviesReducer } from './state/top-rated-movie-list/reducer';
@@ -24,17 +22,7 @@ import { TopRatedMoviesEffects } from './state/top-rated-movie-list/effects';
 import { provideCustomImageLoader } from './utils/image-loader';
 import { UpcomingMoviesEffects } from './state/upcoming-movie-list/effects';
 import { RealspaceHeaderComponent } from './common/components/realspace-header/realspace-header.component';
-import { customMovieListReducer } from './state/custom-movie-list-state/reducer';
-import { CustomMovieListEffects } from './state/custom-movie-list-state/effects';
 import { PortalModule } from '@angular/cdk/portal';
-import { singleMovieReducer } from './state/single-movie/reducer';
-import { SingleMovieEffects } from './state/single-movie/effects';
-import { videosReducer } from './state/videos/reducer';
-import { VideosEffects } from './state/videos/effects';
-import { castReducer } from './state/cast/reducer';
-import { CastEffects } from './state/cast/effects';
-import { relatedMoviesReducer } from './state/related-movie-list/reducer';
-import { RelatedMoviesEffects } from './state/related-movie-list/effects';
 
 @NgModule({
   declarations: [
@@ -114,6 +102,6 @@ import { RelatedMoviesEffects } from './state/related-movie-list/effects';
 })
 export class AppModule {
   constructor() {
-    patchNgZoneForAngularMaterial();
+    patchNgNoopZoneForAngularCdk();
   }
 }
