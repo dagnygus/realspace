@@ -18,6 +18,7 @@ export { initialNoopZoneTestingEnviroment,
          onSchedulerStart,
          onSchedulerDone,
          onStable,
+         patchNgNoopZoneForAngularCdk,
          NoopZoneEnviromentModule } from './src/enviroment/enviroment';
 export { IterableChangeTracker,
          IterableChangeTrackerFactory,

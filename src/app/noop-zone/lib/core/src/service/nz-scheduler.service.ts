@@ -1,5 +1,5 @@
 import { isEnabled, onSchedulerDone, onStable } from './../enviroment/enviroment';
-import { Inject, Injectable, PLATFORM_ID } from "@angular/core";
+import { Injectable } from "@angular/core";
 import { Priority } from "../scheduler/priority";
 import { MonoTypeOperatorFunction, Observable, Observer, Subscription } from "rxjs";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
@@ -14,7 +14,7 @@ export class NzScheduler {
   readonly onStable: Observable<void>;
   readonly enabled = isEnabled();
 
-  constructor(@Inject(PLATFORM_ID) platformId: object) {
+  constructor() {
     assertNoopZoneEnviroment();
 
     if (!this.enabled) {
