@@ -1,5 +1,5 @@
 import { NgModule, inject } from '@angular/core';
-import { Route, Router, RouterModule, Routes, UrlSegment } from '@angular/router';
+import { PreloadAllModules, Route, Router, RouterModule, Routes, UrlSegment } from '@angular/router';
 import { HomePageComponent } from './pages/home-page/home-page.component';
 import { GENRE_ID_REGEX, MOVIE_CATEGORIES, ROUTER_KING } from './utils/constants';
 import { PageNotFoundComponent } from './pages/page-not-found/page-not-found.component';
@@ -73,7 +73,7 @@ const routes: Routes = [
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
+  imports: [RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })],
   exports: [RouterModule]
 })
 export class AppRoutingModule { }

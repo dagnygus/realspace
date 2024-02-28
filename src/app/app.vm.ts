@@ -1,7 +1,7 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject, Observable, distinctUntilChanged, filter, map, merge, of, startWith, tap } from "rxjs";
+import { BehaviorSubject, Observable, asyncScheduler, distinctUntilChanged, filter, map, merge, observeOn, of, startWith, switchMap, take, tap } from "rxjs";
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout'
-import { NavigationEnd, Router } from "@angular/router";
+import { NavigationCancel, NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { NzScheduler, Priority } from "./noop-zone";
 import { Platform } from "@angular/cdk/platform";
 import { FormControl } from "@angular/forms";
@@ -21,6 +21,7 @@ export class AppViewModel {
   isSmallViewPort$: Observable<boolean>;
   isBigViewPort$: Observable<boolean>;
   searchBoxFormControl = new FormControl('');
+  isNavigating$: Observable<boolean>;
 
   constructor(breakpointObserver: BreakpointObserver,
               platform: Platform,
@@ -41,28 +42,30 @@ export class AppViewModel {
     this.hasBackdrop$ = breakpoint$.pipe(
       map((state) => !state.matches),
       startWith(true)
-    )
+    );
 
-    this.sidenavOpen$ = merge(
-      this._sidenavOpen$.pipe(
-        map((value) => {
-          if (breakpointObserver.isMatched('(min-width: 1024px)')) {
-            return true;
-          } else {
-            return value;
-          }
-        })
-      ),
-      breakpoint$.pipe(
-        map((state) => state.matches),
-      ),
-      _router.events.pipe(
-        filter((e) => e instanceof NavigationEnd && !breakpointObserver.isMatched('(min-width: 1024px)')),
-        map(() => false)
-      )
-    ).pipe(
+    this.sidenavOpen$ = nzScheduler.onStable.pipe(
+      take(1),
+      observeOn(asyncScheduler),
+      switchMap(() =>merge(
+        this._sidenavOpen$.pipe(
+          map((value) => {
+            if (breakpointObserver.isMatched('(min-width: 1024px)')) {
+              return true;
+            } else {
+              return value;
+            }
+          })
+        ),
+        breakpoint$.pipe(
+          map((state) => state.matches),
+        ),
+        _router.events.pipe(
+          filter((e) => e instanceof NavigationEnd && !breakpointObserver.isMatched('(min-width: 1024px)')),
+          map(() => false)
+        )
+      )),
       distinctUntilChanged(),
-      // nzScheduler.switchOn(Priority.immediate),
       tap((value) => this._sidenavOpen = value)
     );
 
@@ -75,10 +78,18 @@ export class AppViewModel {
       )
     ).pipe(
       distinctUntilChanged(),
-      // nzScheduler.switchOn(Priority.immediate),
       tap((value) => this._searchboxExpanded = value)
     );
 
+    this.isNavigating$ = nzScheduler.onStable.pipe(
+      take(1),
+      observeOn(asyncScheduler),
+      switchMap(() => merge(
+        _router.events.pipe(filter((e) => e instanceof NavigationStart), map(() => true)),
+        _router.events.pipe(filter((e) => e instanceof NavigationEnd || e instanceof NavigationCancel), map(() => false))
+      )),
+      startWith(false)
+    );
   }
 
   openSidenav(): void {

@@ -2,7 +2,7 @@ import { AfterViewInit, DestroyRef, ElementRef, OnDestroy, ViewChild } from '@an
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { InPipeModule, NzDetachedViewModule, Priority, initializeComponent } from '../../../noop-zone';
+import { InPipeModule, NzDetachedViewModule, NzIfModule, Priority, initializeComponent } from '../../../noop-zone';
 import { AppViewModel } from '../../../app.vm';
 import { NavigationEnd, NavigationStart, Router, RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -10,6 +10,7 @@ import { asapScheduler, asyncScheduler, delay, distinctUntilChanged, filter, fro
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Platform } from '@angular/cdk/platform';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 
 @Component({
   selector: 'header[realspace]',
@@ -18,10 +19,12 @@ import { Platform } from '@angular/cdk/platform';
     MatButtonModule,
     MatIconModule,
     InPipeModule,
+    NzIfModule,
     RouterModule,
     NzDetachedViewModule,
     FormsModule,
     ReactiveFormsModule,
+    MatProgressBarModule
   ],
   templateUrl: './realspace-header.component.html',
   styleUrl: './realspace-header.component.scss',

@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from "@angular/core";
-import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, switchMap, take, takeUntil, tap } from "rxjs";
+import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, startWith, switchMap, take, takeUntil, tap } from "rxjs";
 import { AppState, MovieListStateItem, MovieStateDetails, StateStatus } from "../../models/models";
 import { Store, select } from "@ngrx/store";
 import { NzScheduler, Priority } from "../../noop-zone";
@@ -11,6 +11,10 @@ import { castSateError, clearCastState, getCastForMovieById, getCastForMovieById
 import { Actions, ofType } from "@ngrx/effects";
 import { clearRelatedMovieListState, getRelatedMoviesById, getRelatedMoviesByIdStart, relatedMovieListStateError, updateRelatedMovieListState } from "../../state/related-movie-list/actions";
 import { SingleMovieRef } from "../../state/single-movie/state";
+import { VideosRef } from "../../state/videos/state";
+import { CastRef } from "../../state/cast/state";
+import { RelatedMoviesRef } from "../../state/related-movie-list/state";
+import { BooleanInput } from "@angular/cdk/coercion";
 
 @Injectable()
 export class MoviePageViewModel implements OnDestroy {
@@ -37,7 +41,11 @@ export class MoviePageViewModel implements OnDestroy {
     domSanitizer: DomSanitizer,
     nzScheduler: NzScheduler,
     router: Router,
-    actions$: Actions
+    actions$: Actions,
+    videosRef: VideosRef,
+    signleMovieRef: SingleMovieRef,
+    castRef: CastRef,
+    relatedMoviesRef: RelatedMoviesRef
     ) {
 
     this.movieDetails$ = _store.pipe(
@@ -71,6 +79,7 @@ export class MoviePageViewModel implements OnDestroy {
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateSingleMovieState), map(({ newState }) => newState.details === null ? StateStatus.empty : StateStatus.complete))
     ).pipe(
+      startWith(signleMovieRef.state.details === null ? StateStatus.empty : StateStatus.complete),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -82,6 +91,7 @@ export class MoviePageViewModel implements OnDestroy {
       actions$.pipe(ofType(videosStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateVideosState), map(({ newState }) => newState.links.length ? StateStatus.complete : StateStatus.empty))
     ).pipe(
+      startWith(videosRef.state.links.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -92,6 +102,7 @@ export class MoviePageViewModel implements OnDestroy {
       actions$.pipe(ofType(castSateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateCastState), map(({ newState }) => newState.persons.length ? StateStatus.complete: StateStatus.empty))
     ).pipe(
+      startWith(castRef.state.persons.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -102,6 +113,7 @@ export class MoviePageViewModel implements OnDestroy {
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateRelatedMovieListState), map(({ newState }) => newState.movies.length ? StateStatus.complete: StateStatus.empty))
     ).pipe(
+      startWith(relatedMoviesRef.state.movies.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -114,7 +126,7 @@ export class MoviePageViewModel implements OnDestroy {
       observeOn(asapScheduler),
       takeUntil(this._destory$),
     ).subscribe((params) => {
-      const id = params['movieId'];
+      const id = +params['movieId'];
 
       if (typeof id !== 'undefined') {
         _store.dispatch(getSignleMovieById({ id }));
@@ -122,7 +134,6 @@ export class MoviePageViewModel implements OnDestroy {
         _store.dispatch(getVideosForMovieById({ id }));
         _store.dispatch(getRelatedMoviesById({ id }));
       }
-
     });
 
   }

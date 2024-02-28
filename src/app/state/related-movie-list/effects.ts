@@ -6,8 +6,12 @@ import { NzScheduler, Priority } from "../../noop-zone";
 import { clearRelatedMovieListState, getRelatedMoviesById, getRelatedMoviesByIdStart, relatedMovieListStateError, updateRelatedMovieListState } from "./actions";
 import { catchError, filter, map, of, switchMap, takeUntil, tap } from "rxjs";
 import { isRelatedMovieListState } from "../../utils/type-checkers";
-import { MovieListStateItem, RelatedMovieListState } from "../../models/models";
+import { MovieListState, MovieListStateItem, RelatedMovieListState } from "../../models/models";
 import { movieListInitialState } from "../movie-list-initial-state";
+import { Platform } from "@angular/cdk/platform";
+import { ServerDataCache } from "../../common/services/server-data-cache.service";
+
+const RELATED_MOVIES_STATE_CACHE_KEY = 'realspace-related-movies';
 
 @Injectable()
 export class RelatedMoviesEffects {
@@ -55,10 +59,24 @@ export class RelatedMoviesEffects {
     map(() => updateRelatedMovieListState({ oldState: this._relatedMoviessRef.state, newState: movieListInitialState }))
   ));
 
+  cacheStateOnServer$ = createEffect(() => this._actions$.pipe(
+    ofType(updateRelatedMovieListState),
+    filter(() => !this._platform.isBrowser),
+    tap(({ newState }) => this._serverDataCache.setObject(RELATED_MOVIES_STATE_CACHE_KEY, newState))
+  ), { dispatch: false });
+
+  retrieveStateFromServerCacheInBrowser$ = createEffect(() => of(this._serverDataCache.getObject<MovieListState>(RELATED_MOVIES_STATE_CACHE_KEY)!).pipe(
+    filter((state) => this._platform.isBrowser && state !== null),
+    map((newState) => updateRelatedMovieListState({ oldState: this._relatedMoviessRef.state, newState })),
+    tap(() => this._serverDataCache.removeKey(RELATED_MOVIES_STATE_CACHE_KEY))
+  ))
+
   constructor(
     private _actions$: Actions,
     private _moviesHttpService: MoviesHttpService,
     private _relatedMoviessRef: RelatedMoviesRef,
-    private _nzScheduler: NzScheduler
+    private _nzScheduler: NzScheduler,
+    private _platform: Platform,
+    private _serverDataCache: ServerDataCache
   ) {}
 }

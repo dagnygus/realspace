@@ -75,6 +75,7 @@ export class HomePageViewModel implements OnDestroy {
         ofType(nowPlayingMovieListStateError), map(() => StateStatus.error)
       )
     ).pipe(
+      startWith(nowPlaingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -91,6 +92,7 @@ export class HomePageViewModel implements OnDestroy {
         ofType(popularMoviesListStateError), map(() => StateStatus.error)
       )
     ).pipe(
+      startWith(popularMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)
@@ -107,6 +109,7 @@ export class HomePageViewModel implements OnDestroy {
         ofType(topRatedListStateError), map(() => StateStatus.error)
       )
     ).pipe(
+      startWith(topRatedMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$),
@@ -123,6 +126,7 @@ export class HomePageViewModel implements OnDestroy {
         ofType(upcomingMovieListStateError), map(() => StateStatus.error)
       )
     ).pipe(
+      startWith(upcomingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
       takeUntil(this._destory$)

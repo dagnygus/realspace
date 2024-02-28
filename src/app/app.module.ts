@@ -1,9 +1,9 @@
-import { NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
+import { NgModule, NgZone } from '@angular/core';
+import { BrowserModule, provideClientHydration } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSidenavModule } from '@angular/material/sidenav';
-import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLocalViewModule, Priority, inPipeDefaultPriority, patchNgNoopZoneForAngularCdk, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration } from './noop-zone';
+import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLocalViewModule, NzScheduler, Priority, inPipeDefaultPriority, patchNgNoopZoneForAngularCdk, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration } from './noop-zone';
 import { RealspaceContentComponent } from './common/components/realspace-content/realspace-content.component';
 import { RealspaceSidenavContentComponent } from './common/components/realspace-sidenav-content/realspace-sidenav-content.component';
 import { provideStore } from '@ngrx/store';
@@ -15,14 +15,16 @@ import { nowPlayingMoviesReducer } from './state/now-playing-movie-list/reducer'
 import { popularMoviesReducer } from './state/popular-movie-list/reducer';
 import { topRatedMoviesReducer } from './state/top-rated-movie-list/reducer';
 import { upcomingMoviesReducer } from './state/upcoming-movie-list/reducer';
-import { HttpClientModule } from '@angular/common/http';
 import { NowPlaingMoviesEffects } from './state/now-playing-movie-list/effects';
 import { PopularMoviesEffects } from './state/popular-movie-list/effects';
 import { TopRatedMoviesEffects } from './state/top-rated-movie-list/effects';
-import { provideCustomImageLoader } from './utils/image-loader';
 import { UpcomingMoviesEffects } from './state/upcoming-movie-list/effects';
 import { RealspaceHeaderComponent } from './common/components/realspace-header/realspace-header.component';
-import { PortalModule } from '@angular/cdk/portal';
+import { provideHttpClient, withFetch } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
+import { take } from 'rxjs';
+
+(NgZone.assertInAngularZone as any) = function () { return ; }
 
 @NgModule({
   declarations: [
@@ -31,12 +33,11 @@ import { PortalModule } from '@angular/cdk/portal';
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
-    HttpClientModule,
     InPipeModule,
     NzLocalViewModule,
     NzDetachedViewModule,
     MatSidenavModule,
-    PortalModule,
+    // PortalModule,
     NoopZoneEnviromentModule,
     RealspaceContentComponent,
     RealspaceHeaderComponent,
@@ -69,7 +70,7 @@ import { PortalModule } from '@angular/cdk/portal';
     })
   ],
   providers: [
-    provideCustomImageLoader(),
+    provideHttpClient(withFetch()),
     provideNzLetConfiguration(NZ_LET_CONFIG),
     provideNzForConfiguration(NZ_FOR_CONFIG),
     provideNzDetachedViewConfiguration(NZ_DETACHED_VIEW_CONFIG),
@@ -96,12 +97,41 @@ import { PortalModule } from '@angular/cdk/portal';
       // VideosEffects,
       // CastEffects,
       // RelatedMoviesEffects
-    ])
+    ]),
+    provideClientHydration()
   ],
   bootstrap: [AppComponent]
 })
 export class AppModule {
-  constructor() {
+
+  private _hydrationReady = false;
+
+  constructor(nzScheduler: NzScheduler, ngZone: NgZone) {
+
+    const itSelf = this;
+    const originalOnClick = RouterLink.prototype.onClick;
+
+    RouterLink.prototype.onClick = function(
+      button: number,
+      ctrlKey: boolean,
+      shiftKey: boolean,
+      altKey: boolean,
+      metaKey: boolean
+    ) {
+      if (itSelf._hydrationReady) {
+        return originalOnClick.call(this, button, ctrlKey, shiftKey, altKey, metaKey);
+      } else {
+        return !(this as any).isAnchorElement;
+      }
+    }
+
+    nzScheduler.onStable.pipe(take(1)).subscribe(() => {
+      ngZone.onStable.emit();
+      setTimeout(() => {
+        this._hydrationReady = true;
+      }, 0);
+    });
+
     patchNgNoopZoneForAngularCdk();
   }
 }

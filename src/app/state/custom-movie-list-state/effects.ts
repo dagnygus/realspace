@@ -3,11 +3,15 @@ import { MoviesHttpService } from "../../common/services/movies-http.service";
 import { CustomMovieListRef } from "./state";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { clearCustomMovieListState, customMovieListStateError, extendCustomMovieListByCategoty, extendCustomMovieListByGenre, replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, replaceOrExtendCustomMovieListByCategory, replaceOrExtendCustomMovieListByGenre, searchMoviesWithKey, searchMoviesWithKyeStart, updateCustomMovieListState } from "./actions";
-import { exhaustMap, map, catchError, of, takeUntil, switchMap, tap, filter } from "rxjs";
+import { exhaustMap, map, catchError, of, takeUntil, switchMap, tap, filter, take } from "rxjs";
 import { isCategoryMovieListState, isGenreMovieListState, isSearchKeyMovieListState } from "../../utils/type-checkers";
-import { CategoryMovieListState, GenreMovieListState, MovieListStateItem, SearchKeyMovieListState } from "../../models/models";
+import { CategoryMovieListState, GenreMovieListState, MovieListState, MovieListStateItem, SearchKeyMovieListState } from "../../models/models";
 import { Injectable } from "@angular/core";
 import { movieListInitialState } from "../movie-list-initial-state";
+import { Platform } from "@angular/cdk/platform";
+import { ServerDataCache } from "../../common/services/server-data-cache.service";
+
+const CUSTOM_MOVIE_LIST_STATE_CACHE_KEY = 'realspace-custom-movie-list-state'
 
 @Injectable()
 export class CustomMovieListEffects {
@@ -197,18 +201,32 @@ export class CustomMovieListEffects {
       catchError((error) => of(customMovieListStateError({ error }))),
       takeUntil(this._actions$.pipe(ofType(clearCustomMovieListState)))
     ))
-  ))
+  ));
 
   clearCustomMovieListState$ = createEffect(() => this._actions$.pipe(
     ofType(clearCustomMovieListState),
     filter(() => this._customMovieListRef.state !== movieListInitialState),
     map(() => updateCustomMovieListState({ oldState: this._customMovieListRef.state, newState: movieListInitialState }))
+  ));
+
+  cacheStateOnServer$ = createEffect(() => this._actions$.pipe(
+    ofType(updateCustomMovieListState),
+    filter(() => !this._platform.isBrowser),
+    tap(({ newState }) => this._serverDataCache.setObject(CUSTOM_MOVIE_LIST_STATE_CACHE_KEY, newState))
+  ), { dispatch: false });
+
+  retrieveStateFromServerCacheInBrowser$ = createEffect(() => of(this._serverDataCache.getObject<MovieListState>(CUSTOM_MOVIE_LIST_STATE_CACHE_KEY)!).pipe(
+    filter((state) => this._platform.isBrowser && state !== null),
+    map((newState) => updateCustomMovieListState({ oldState: this._customMovieListRef.state, newState })),
+    tap(() => this._serverDataCache.removeKey(CUSTOM_MOVIE_LIST_STATE_CACHE_KEY))
   ))
 
   constructor(
     private _actions$: Actions,
     private _moviesHttpService: MoviesHttpService,
     private _customMovieListRef: CustomMovieListRef,
-    private _nzScheduler: NzScheduler
+    private _nzScheduler: NzScheduler,
+    private _platform: Platform,
+    private _serverDataCache: ServerDataCache
   ) {}
 }

@@ -1,7 +1,7 @@
-import { inject } from '@angular/core';
+import { DestroyRef, inject } from '@angular/core';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { Priority, detectChanges, initializeComponent } from './noop-zone';
-import { asyncScheduler, observeOn } from 'rxjs';
+import { NzScheduler, Priority, detectChanges, initializeComponent } from './noop-zone';
+import { asyncScheduler, observeOn, switchMap, take } from 'rxjs';
 import { AppViewModel } from './app.vm';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
@@ -16,15 +16,16 @@ export class AppComponent  {
   cdRef = initializeComponent(this);
   vm = inject(AppViewModel);
   Priority = Priority;
+  nzSchduler = inject(NzScheduler);
 
   constructor() {
-
-    this.vm.sidenavOpen$.pipe(
+    
+    this.nzSchduler.onStable.pipe(
+      take(1),
+      switchMap(() => this.vm.sidenavOpen$),
       observeOn(asyncScheduler),
       takeUntilDestroyed()
-    ).subscribe(() => {
-      detectChanges(this.cdRef);
-    });
+    ).subscribe(() => detectChanges(this.cdRef));
 
   }
 

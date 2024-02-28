@@ -3,9 +3,13 @@ import { Actions, createEffect, ofType } from "@ngrx/effects";
 import { MoviesHttpService } from "../../common/services/movies-http.service";
 import { VideosRef, initialVideosState } from "./state";
 import { clearVideosState, getVideosForMovieById, getVideosForMovieByIdStart, updateVideosState, videosStateError } from "./actions";
-import { catchError, filter, map, of, switchMap, takeUntil } from "rxjs";
+import { catchError, filter, map, of, switchMap, takeUntil, tap } from "rxjs";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { VideosState } from "../../models/models";
+import { Platform } from "@angular/cdk/platform";
+import { ServerDataCache } from "../../common/services/server-data-cache.service";
+
+const VIDEOS_STATE_CACHE_KEY = 'realspace-videos-state';
 
 @Injectable()
 export class VideosEffects {
@@ -45,10 +49,24 @@ export class VideosEffects {
     map(() => updateVideosState({ oldState: this._videosRef.state, newState: initialVideosState }))
   ));
 
+  cacheStateOnServer$ = createEffect(() => this._actions$.pipe(
+    ofType(updateVideosState),
+    filter(() => !this._platform.isBrowser),
+    tap(({ newState }) => this._serverDataCache.setObject(VIDEOS_STATE_CACHE_KEY, newState))
+  ), { dispatch: false });
+
+  retrieveStateFromServerCacheInBrowser = createEffect(() => of(this._serverDataCache.getObject<VideosState>(VIDEOS_STATE_CACHE_KEY)!).pipe(
+    filter((state) => this._platform.isBrowser && state !== null),
+    map((newState) => updateVideosState({ oldState: this._videosRef.state, newState })),
+    tap(() => this._serverDataCache.removeKey(VIDEOS_STATE_CACHE_KEY))
+  ))
+
   constructor(
     private _actions$: Actions,
     private _moviesHttpService: MoviesHttpService,
     private _videosRef: VideosRef,
-    private _nzScheduler: NzScheduler
+    private _nzScheduler: NzScheduler,
+    private _platform: Platform,
+    private _serverDataCache: ServerDataCache
   ) {}
 }

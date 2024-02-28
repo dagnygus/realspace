@@ -7,6 +7,10 @@ import { catchError, exhaustMap, filter, map, of, repeat, switchMap, takeUntil, 
 import { MovieListState, MovieListStateItem } from "../../models/models";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { movieListInitialState } from "../movie-list-initial-state";
+import { Platform } from "@angular/cdk/platform";
+import { ServerDataCache } from "../../common/services/server-data-cache.service";
+
+const TOP_RATED_MOVIES_STATE_CACHE_KEY = 'realspace-top-rated-state'
 
 @Injectable({ providedIn: 'root' })
 export class TopRatedMoviesEffects {
@@ -41,18 +45,32 @@ export class TopRatedMoviesEffects {
       catchError((error) => of(topRatedListStateError({ error }))),
       takeUntil(this._actions$.pipe(ofType(clearTopRatedMovieListState)))
     )),
-  ))
+  ));
 
-  clearTopRatedMovieListState = createEffect(() => this._actions$.pipe(
+  clearTopRatedMovieListState$ = createEffect(() => this._actions$.pipe(
     ofType(clearTopRatedMovieListState),
     filter(() => this._topRatedMoviesRef.state !== movieListInitialState),
     map(() => updateTopRatedMovieListState({ oldState: this._topRatedMoviesRef.state, newState: movieListInitialState }))
+  ));
+
+  cacheStateOnServer$ = createEffect(() => this._actions$.pipe(
+    ofType(updateTopRatedMovieListState),
+    filter(() => !this._platform.isBrowser),
+    tap(({ newState }) => this._serverDataCache.setObject(TOP_RATED_MOVIES_STATE_CACHE_KEY, newState))
+  ), { dispatch: false });
+
+  retrieveStateFromServerCacheInBrowser$ = createEffect(() => of(this._serverDataCache.getObject<MovieListState>(TOP_RATED_MOVIES_STATE_CACHE_KEY)!).pipe(
+    filter((state) => this._platform.isBrowser && state !== null),
+    map((newState) => updateTopRatedMovieListState({ oldState: this._topRatedMoviesRef.state, newState })),
+    tap(() => this._serverDataCache.removeKey(TOP_RATED_MOVIES_STATE_CACHE_KEY))
   ))
 
   constructor(
     private _actions$: Actions,
     private _moviesHttpService: MoviesHttpService,
     private _topRatedMoviesRef: TopRatedMoviesRef,
-    private _nzScheduler: NzScheduler
+    private _nzScheduler: NzScheduler,
+    private _platform: Platform,
+    private _serverDataCache: ServerDataCache
   ) {}
 }

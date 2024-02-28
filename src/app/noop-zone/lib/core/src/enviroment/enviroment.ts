@@ -91,12 +91,14 @@ export function isNoopZoneModuleImported(): boolean {
 }
 
 function bootstrapListener(componentRef: ComponentRef<any>): void {
+  if (schedulerDisabled) { return; }
+
   rootComponents!.push(componentRef.instance);
 
   if (!timeoutRequested) {
     timeoutRequested = true;
     setTimeout(() => {
-      onBootstrap.next(rootComponents!)
+      onBootstrap.next(rootComponents!);
       rootComponents = null;
     });
   }
@@ -137,7 +139,7 @@ export function patchNgNoopZoneForAngularCdk(): void {
 
     constructor.prototype.run = function(cb: any) {
       zoneTrigger.next();
-      return originalRun.call(this, cb)
+      return originalRun.call(this, cb);
     }
     constructor.prototype.runTusk = function(cb: any) {
       zoneTrigger.next();

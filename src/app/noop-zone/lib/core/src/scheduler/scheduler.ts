@@ -107,7 +107,8 @@ const riseDoneCallback = () => {
 }
 
 const isInputPending =
-  runtimeThis.navigator  !== 'undefined' &&
+  isNodeJS ? null :
+  runtimeThis.navigator !== 'undefined' &&
   runtimeThis.navigator.scheduling !== undefined &&
   runtimeThis.navigator.scheduling.isInputPending !== undefined ?
   runtimeThis.navigator.scheduling.isInputPending.bind(runtimeThis.navigator.scheduling) : null;

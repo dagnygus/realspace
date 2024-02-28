@@ -3,10 +3,14 @@ import { Actions, createEffect, ofType } from "@ngrx/effects";
 import { MoviesHttpService } from "../../common/services/movies-http.service";
 import { clearNowPlayingMovieListState, getNowPlayingMovies, getNowPlayingMoviesStart, nowPlayingMovieListStateError, updateNowPlayingMovieListState } from "./actions";
 import { NowPlaingMoviesRef } from "./state";
-import { catchError, exhaustMap, filter, map, of, takeUntil } from "rxjs";
+import { catchError, exhaustMap, filter, map, of, take, takeUntil, tap } from "rxjs";
 import { MovieListState, MovieListStateItem } from "../../models/models";
 import { movieListInitialState } from "../movie-list-initial-state";
 import { NzScheduler, Priority } from "../../noop-zone";
+import { Platform } from "@angular/cdk/platform";
+import { ServerDataCache } from "../../common/services/server-data-cache.service";
+
+const NOW_PLAYING_MOVIES_STATE_CACHE_KEY = 'realspace-now-playing-movies-state'
 
 @Injectable()
 export class NowPlaingMoviesEffects {
@@ -48,10 +52,24 @@ export class NowPlaingMoviesEffects {
     filter(() => this._nowPlayingMoviesRef.state !== movieListInitialState),
     this._nzScheduler.switchOn(Priority.idle),
     map(() => updateNowPlayingMovieListState({ oldState: this._nowPlayingMoviesRef.state, newState: movieListInitialState }))
-  ))
+  ));
+
+  cacheStateOnServer = createEffect(() => this._actions$.pipe(
+    ofType(updateNowPlayingMovieListState),
+    filter(() => !this._platform.isBrowser),
+    tap(({ newState }) => this._serverDataCache.setObject(NOW_PLAYING_MOVIES_STATE_CACHE_KEY, newState))
+  ), { dispatch: false })
+
+  retrieveStateFromServerCacheInBrowser = createEffect(() => of(this._serverDataCache.getObject<MovieListState>(NOW_PLAYING_MOVIES_STATE_CACHE_KEY)!).pipe(
+    filter((state) => this._platform.isBrowser && state !== null),
+    map((newState) => updateNowPlayingMovieListState({ oldState: this._nowPlayingMoviesRef.state, newState })),
+    tap(() => this._serverDataCache.removeKey(NOW_PLAYING_MOVIES_STATE_CACHE_KEY))
+  ));
 
   constructor(private _actions$: Actions,
               private _moviesHttpService: MoviesHttpService,
               private _nowPlayingMoviesRef: NowPlaingMoviesRef,
-              private _nzScheduler: NzScheduler) {}
+              private _nzScheduler: NzScheduler,
+              private _platform: Platform,
+              private _serverDataCache: ServerDataCache) {}
 }

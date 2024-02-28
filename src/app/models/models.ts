@@ -82,7 +82,7 @@ export interface BasicMovieListState {
 }
 
 export interface RelatedMovieListState {
-  readonly id: number
+  readonly id: number;
   readonly lastRequestedPage: number;
   readonly movies: readonly MovieListStateItem[];
 }
@@ -226,4 +226,13 @@ export interface CastState {
     readonly name: string,
     readonly profilePath: string,
   }[]
+}
+
+export interface DataCache {
+  setString(key: string, value: string): void;
+  getString(key: string): string | null;
+  setObject<T extends object = object>(key: string, value: T): void;
+  getObject<T extends object = object>(key: string): T | null;
+  hasKey(key: string): boolean;
+  removeKey(key: string): void;
 }
