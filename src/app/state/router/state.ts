@@ -1,6 +1,6 @@
 import { RouterReducerState } from "@ngrx/router-store";
-import { BaseStateRef } from "../base-state-ref";
-import { RouterStateUrl } from "../../models/models";
+import { BaseStateRef } from "../../models/object-model";
+import { RouterStateUrl } from "../../models/abstract-models";
 import { Injectable } from "@angular/core";
 
 @Injectable({ providedIn: 'root' })

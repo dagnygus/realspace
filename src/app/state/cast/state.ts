@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
-import { CastState } from "../../models/models";
-import { BaseStateRef } from "../base-state-ref";
+import { CastState } from "../../models/abstract-models";
+import { BaseStateRef } from "../../models/object-model";
 
 export const initialCastState: CastState = {
   persons: []

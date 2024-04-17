@@ -1,16 +1,13 @@
-<ng-template [nzDetachedView]="Priority.immediate" let-dvCdRef>
-
-  @if (vm.isBigViewPort$ | in: dvCdRef) {
+<ng-container *watch>
+  @if (vm.isBigViewPort()) {
     <header realspace class="global-header"></header>
   }
+</ng-container>
 
-</ng-template>
-
-<ng-template [nzLocalView]="Priority.immediate">
-
-  <mat-sidenav-container [hasBackdrop]="vm.hasBackdrop$ | in:cdRef"
+<ng-container *watch>
+  <mat-sidenav-container [hasBackdrop]="vm.hasBackdrop()"
                          (backdropClick)="vm.closeSidenav()">
-    <mat-sidenav [opened]="vm.sidenavOpen$ | in:cdRef" [mode]="(vm.sidenavMode$ | in:cdRef)!">
+    <mat-sidenav [opened]="vm.sidenavOpen()" [mode]="vm.sidenavMode()">
       <app-realspace-sidenav-content/>
     </mat-sidenav>
     <mat-sidenav-content>
@@ -18,5 +15,6 @@
     </mat-sidenav-content>
   </mat-sidenav-container>
 
-</ng-template>
+</ng-container>
+
 

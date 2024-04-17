@@ -1,6 +1,6 @@
 import { Params } from "@angular/router";
 import { RouterReducerState } from "@ngrx/router-store";
-import { Genre } from "../utils/genres";
+import { Genre } from "../models/object-model";
 
 export interface RouterStateUrl {
   fragment: string | null;

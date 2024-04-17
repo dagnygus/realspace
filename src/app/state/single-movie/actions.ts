@@ -1,5 +1,5 @@
 import { createAction, props } from "@ngrx/store";
-import { MovieState } from "../../models/models";
+import { MovieState } from "../../models/abstract-models";
 
 export const enum SingleMovieActionNames {
   getSingleMovieById = '[Single Movie] get single movie by id',

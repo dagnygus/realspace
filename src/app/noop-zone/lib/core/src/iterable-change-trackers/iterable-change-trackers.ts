@@ -4,7 +4,7 @@ import { DefaultIterableChangeTrackerFactory } from "./default-iterable-change-t
 
 export interface IterableChangeObserver<T> {
   onAdd(record: IterableChangeRecord<T>, index: number | undefined): void;
-  onRemove(record: IterableChangeRecord<T>, adjustedIndex: number | undefined): void;
+  onRemove(record: IterableChangeRecord<T>, adjustedIndex: number): void;
   onMove(record: IterableChangeRecord<T>, adjustedPreviousIndex: number, currentIndex: number, changed: boolean): void;
   onUpdate(record: IterableChangeRecord<T>, index: number): void;
   onIterate(record: IterableChangeRecord<T>, index: number): void;
@@ -13,8 +13,9 @@ export interface IterableChangeObserver<T> {
 
 export interface IterableChangeTracker<T> {
   findChanges(iterable: NgIterable<T> | null | undefined): boolean;
-  applyChanges(observer: IterableChangeObserver<T>): void
-  readonly length: number | undefined
+  applyChanges(observer: IterableChangeObserver<T>): void;
+  reset(): void
+  readonly length: number | undefined;
 }
 
 export interface IterableChangeTrackerFactory {

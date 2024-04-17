@@ -6,8 +6,6 @@ export * from './for/nz-for.directive';
 export * from './for/nz-for.module';
 export * from './let/nz-let.directive';
 export * from './let/nz-let.module';
-export * from './query-view/query-view.directive';
-export * from './query-view/query-view.module';
 export * from './detached-view/detached-view.directive';
 export * from './detached-view/detached-view.module';
 export * from './class/nz-class.directive';

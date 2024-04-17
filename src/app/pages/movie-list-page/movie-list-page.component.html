@@ -1,37 +1,37 @@
 <div class="title-container flex justify-center py-[8px] mat-elevation-z6 font-bold w-full max-w-[700px] mx-auto">
-    <h3 class="text-[24px]" *nzLet="vm.listTitle$; let listTitle" [textContent]="listTitle"></h3>
+    <h3 class="text-[24px]" *watch [textContent]="vm.listTitle()"></h3>
 </div>
 <div class="movie-list-container">
 
-  <div *nzFor="let movie of vm.movies$; trackBy: 'id'; let forCdRef = cdRef"
+  <div *sigFor="let movie of vm.movies; trackBy: 'id'"
         class="movie-card mat-elevation-z5 w-full max-w-[210px]"
         role="region"
-        [routerLink]="'/movie/' + movie.id"
-        [class.placeholder]="vm.isStateReplacing$ | in:forCdRef:Priority.normal">
+        [routerLink]="'/movie/' + movie().id"
+        [class.placeholder]="vm.isStateReplacing()">
       <div class="movie-card-image-container">
         <img class="movie-card-image"
-             [src]="movie.posterPath | posterSrc"
-             [srcset]="movie.posterPath |posterSrcSet"
+             [src]="movie().posterPath | posterSrc"
+             [srcset]="movie().posterPath |posterSrcSet"
              sizes="(min-width: 453px) 207px, calc(50vw)"
              alt="">
       </div>
       <div class="movie-card-title-container">
-        <h4 class="movie-card-title" [textContent]="movie.title"></h4>
+        <h4 class="movie-card-title" [textContent]="movie().title"></h4>
       </div>
       <div class="movie-card-footer">
 
         <div class="flex items-center">
           <mat-icon class="movie-card-star-icon">star</mat-icon>
-          <span class="movie-card-vote-avarage" [textContent]="movie.voteAvarage"></span>
+          <span class="movie-card-vote-avarage" [textContent]="movie().voteAvarage"></span>
         </div>
 
         <div>
-          <span [textContent]="movie.realeaseDate | yearFromDate"></span>
+          <span [textContent]="movie().realeaseDate | yearFromDate"></span>
         </div>
     </div>
   </div>
 
-  <ng-container *nzIf="vm.isStateExtending$; priority: Priority.userBlocking">
+  <ng-container *sigIf="vm.isStateExtending; priority: Priority.userBlocking">
 
     @for (_ of range16; track $index) {
       <div class="w-full max-w-[210px] movie-card-placeholder placeholder"></div>

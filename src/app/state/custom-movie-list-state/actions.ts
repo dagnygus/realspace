@@ -1,6 +1,6 @@
 import { createAction, props } from "@ngrx/store";
-import { Genre } from "../../utils/genres";
-import { MovieCategory, MovieListState } from "../../models/models";
+import { Genre } from "../../models/object-model";
+import { MovieCategory, MovieListState } from "../../models/abstract-models";
 
 export const enum CustomMovieListActionNames {
   replaceOrExtendMovieListByGenre = '[CustomMovieListActionNames] replace or extend movies by genre',

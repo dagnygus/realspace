@@ -1,61 +1,61 @@
-<article class="single-movie-container" [nzSwitch]="vm.movieDetailsStatus$" [priority]="1">
+<article class="single-movie-container" [sigSwitch]="vm.movieDetailsStatus" [priority]="1">
 
-  <ng-template [nzSwitchCase]="StateStatus.error"></ng-template>
+  <ng-template [sigSwitchCase]="StateStatus.error"></ng-template>
 
-  <ng-template [nzSwitchCase]="StateStatus.error"></ng-template>
+  <ng-template [sigSwitchCase]="StateStatus.error"></ng-template>
 
-  <ng-template nzSwitchDefault>
+  <ng-template sigSwitchDefault>
 
-    <div class="backdrop-container w-full" [nzSwitch]="vm.movieDetailsStatus$">
-      <img *nzSwitchCase="StateStatus.complete"
+    <div class="backdrop-container w-full" [sigSwitch]="vm.movieDetailsStatus">
+      <img *sigSwitchCase="StateStatus.complete"
            class="backdroop"
-           [src]="vm.movieDetails.backdropPath| backdropSrc"
-           [srcset]="vm.movieDetails.backdropPath| backdropSrcSet"
+           [src]="vm.movieDetails().backdropPath| backdropSrc"
+           [srcset]="vm.movieDetails().backdropPath| backdropSrcSet"
            sizes="100vw"
            alt="">
     </div>
 
     <div class="single-movie-content p-[8px]">
 
-      <div class="poster-container" [nzSwitch]="vm.movieDetailsStatus$">
+      <div class="poster-container" [sigSwitch]="vm.movieDetailsStatus">
 
-        <img *nzSwitchCase="StateStatus.complete"
+        <img *sigSwitchCase="StateStatus.complete"
              class="absolute top-0 left-0 w-full h-full mat-elevation-z3"
-             [src]="vm.movieDetails.posterPath | posterSrc"
-             [srcset]="vm.movieDetails.posterPath | posterSrcSet"
+             [src]="vm.movieDetails().posterPath | posterSrc"
+             [srcset]="vm.movieDetails().posterPath | posterSrcSet"
              sizes="(min-width: 870px) 260px, 30vw"
              alt="">
 
-        <div *nzSwitchCase="StateStatus.pending"
+        <div *sigSwitchCase="StateStatus.pending"
              class="absolute top-0 left-0 w-full h-full movie-page-placeholder mat-elevation-z3">
              <div class="placeholder h-full"></div>
         </div>
 
       </div>
 
-      <section [nzSwitch]="vm.movieDetailsStatus$"
+      <section [sigSwitch]="vm.movieDetailsStatus"
                class="title-section rounded-[4px] px-[16px] py-[8px]">
 
-        <ng-template [nzSwitchCase]="StateStatus.complete">
-          <h3 class="title-heading teal-text" [textContent]="vm.movieDetails.title | uppercase"></h3>
-          <h4 class="subline-haeding" [textContent]="vm.movieDetails.tagline | uppercase"></h4>
+        <ng-template [sigSwitchCase]="StateStatus.complete">
+          <h3 class="title-heading teal-text" [textContent]="vm.movieDetails().title | uppercase"></h3>
+          <h4 class="subline-haeding" [textContent]="vm.movieDetails().tagline | uppercase"></h4>
           <div class="flex justify-between">
             <p class="flex items-center">
               <mat-icon class="star-icon mr-[4px]">star</mat-icon>
-              <span [textContent]="vm.movieDetails.voteAverage"></span>
+              <span [textContent]="vm.movieDetails().voteAverage"></span>
             </p>
             <p class="flex items-center">
               <mat-icon class="mr-[4px]">schedule</mat-icon>
-              <span [textContent]="vm.movieDetails.runtime + ' min'"></span>
+              <span [textContent]="vm.movieDetails().runtime + ' min'"></span>
             </p>
             <p class="flex items-center">
               <mat-icon class="mr-[4px]">event</mat-icon>
-              <span [textContent]="vm.movieDetails.releaseDate | yearFromDate"></span>
+              <span [textContent]="vm.movieDetails().releaseDate | yearFromDate"></span>
             </p>
           </div>
         </ng-template>
 
-        <ng-template [nzSwitchCase]="StateStatus.pending">
+        <ng-template [sigSwitchCase]="StateStatus.pending">
           <div class="h-[100px]">
             <div class="placeholder h-full"></div>
           </div>
@@ -63,13 +63,13 @@
 
       </section>
 
-      <ng-container [nzSwitch]="vm.movieDetailsStatus$">
+      <ng-container [sigSwitch]="vm.movieDetailsStatus">
 
-        <ng-template [nzSwitchCase]="StateStatus.complete">
+        <ng-template [sigSwitchCase]="StateStatus.complete">
           <section class="genres-section p-[8px]">
             <h4>THE GENRES:</h4>
             <ul class="flex flex-wrap">
-              @for (genre of vm.movieDetails.genres; track $index) {
+              @for (genre of vm.movieDetails().genres; track $index) {
                 <li class="genre-list-item mat-elevation-z3 text-[14px] py-[4px] px-[8px] mr-[4px] mb-[4px]" [textContent]="genre"></li>
               }
             </ul>
@@ -77,11 +77,11 @@
 
           <section class="synopsis-section p-[8px]">
             <h4>THE SYNOPSYS:</h4>
-            <p class="text-[14px]" [textContent]="vm.movieDetails.overview"></p>
+            <p class="text-[14px]" [textContent]="vm.movieDetails().overview"></p>
           </section>
         </ng-template>
 
-        <ng-template [nzSwitchCase]="StateStatus.pending">
+        <ng-template [sigSwitchCase]="StateStatus.pending">
           <div>
 
             @for (_ of range6; track $index) {
@@ -98,21 +98,21 @@
 
       <section class="cast-section p-[8px]">
         <h4>THE CAST:</h4>
-        <div horizontalScroll class="cast-slider pb-[4px]" [nzSwitch]="vm.castStateStatus$">
+        <div horizontalScroll class="cast-slider pb-[4px]" [sigSwitch]="vm.castStateStatus">
 
-          <ng-template [nzSwitchCase]="StateStatus.complete">
-            <a [routerLink]="null" *nzFor="let person of vm.cast$; trackBy: 'id'">
+          <ng-template [sigSwitchCase]="StateStatus.complete">
+            <a [routerLink]="null" *sigFor="let person of vm.cast; trackBy: 'id'">
               <picture>
                 <img class="profile-picture rounded-[8px] overflow-hidden mat-elevation-z3"
-                     [src]="person.profilePath | profileSrc"
-                     [srcset]="person.profilePath | profileSrcSet"
+                     [src]="person().profilePath | profileSrc"
+                     [srcset]="person().profilePath | profileSrcSet"
                      sizes="58px"
                      alt="">
               </picture>
             </a>
           </ng-template>
 
-          <ng-template [nzSwitchCase]="StateStatus.pending">
+          <ng-template [sigSwitchCase]="StateStatus.pending">
 
             @for (_ of range9; track $index) {
               <div class="pictuter-paceholder placeholder mat-elevation-z3 rounded-[8px]"></div>
@@ -124,18 +124,18 @@
       </section>
 
       <section class="clips-section p-[8px] mt-[16px]">
-        <h4 *nzIf="vm.hasVideoLinks$" class="heading">TRAILERS AND CLIPS</h4>
-        <div horizontalScroll class="clips-slider" [nzSwitch]="vm.videoLinksStatus$">
+        <h4 *sigIf="vm.hasVideoLinks" class="heading">TRAILERS AND CLIPS</h4>
+        <div horizontalScroll class="clips-slider" [sigSwitch]="vm.videoLinksStatus">
 
-          <ng-template [nzSwitchCase]="StateStatus.complete" let-scCdRef>
-            @if(vm.hasVideoLinks$ | in:scCdRef) {
-              <div class="clips-slider-item mat-elevation-z3" *nzFor="let link of vm.videoLinks$">
-                <iframe class="w-full h-full top-0 left-0 absolute" [src]="link" allowfullscreen></iframe>
+          <ng-template [sigSwitchCase]="StateStatus.complete" let-scCdRef>
+            @if(vm.hasVideoLinks()) {
+              <div class="clips-slider-item mat-elevation-z3" *sigFor="let link of vm.videoLinks">
+                <iframe class="w-full h-full top-0 left-0 absolute" [src]="link()" allowfullscreen></iframe>
               </div>
             }
           </ng-template>
 
-          <ng-template [nzSwitchCase]="StateStatus.pending">
+          <ng-template [sigSwitchCase]="StateStatus.pending">
 
             @for (_ of range7; track $index) {
               <div class="clips-slider-item mat-elevation-z3 placeholder"></div>
@@ -148,7 +148,7 @@
 
       <section class="related-section p-[8px] mt-[16px] mb-[32px]">
         <h4 class="heading">YOU MAKE OLSO LIKE</h4>
-        <app-movie-slider [movieListSource]="vm.relatedMovies$" [movieListStatusSource]="vm.relatedMoviesStatus$"/>
+        <app-movie-slider [movieListSource]="vm.relatedMovies" [movieListStatusSource]="vm.relatedMoviesStatus"/>
       </section>
     </div>
 

@@ -1,6 +1,6 @@
-import { Injectable, OnDestroy } from "@angular/core";
+import { Injectable, OnDestroy, Signal } from "@angular/core";
 import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, startWith, switchMap, take, takeUntil, tap } from "rxjs";
-import { AppState, MovieListStateItem, MovieStateDetails, StateStatus } from "../../models/models";
+import { AppState, MovieListStateItem, MovieStateDetails, StateStatus } from "../../models/abstract-models";
 import { Store, select } from "@ngrx/store";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { NavigationEnd, Router } from "@angular/router";
@@ -14,26 +14,32 @@ import { SingleMovieRef } from "../../state/single-movie/state";
 import { VideosRef } from "../../state/videos/state";
 import { CastRef } from "../../state/cast/state";
 import { RelatedMoviesRef } from "../../state/related-movie-list/state";
-import { BooleanInput } from "@angular/cdk/coercion";
+import { ViewModelBase } from "../../models/object-model";
 
 @Injectable()
-export class MoviePageViewModel implements OnDestroy {
+export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
   private _destory$ = new Subject<void>();
 
-  movieDetails$: Observable<MovieStateDetails>;
-  videoLinks$: Observable<readonly SafeResourceUrl[]>;
-  cast$: Observable<readonly { readonly id: number; readonly name: string; readonly profilePath: string }[]>;
-  relatedMovies$: Observable<readonly MovieListStateItem[]>;
-  hasVideoLinks$: Observable<boolean>;
+  // movieDetails$: Observable<MovieStateDetails>;
+  // videoLinks$: Observable<readonly SafeResourceUrl[]>;
+  // cast$: Observable<readonly { readonly id: number; readonly name: string; readonly profilePath: string }[]>;
+  // relatedMovies$: Observable<readonly MovieListStateItem[]>;
+  // hasVideoLinks$: Observable<boolean>;
 
-  movieDetailsStatus$ = new ReplaySubject<StateStatus>(1);
-  videoLinksStatus$ = new ReplaySubject<StateStatus>(1);
-  castStateStatus$ = new ReplaySubject<StateStatus>(1);
-  relatedMoviesStatus$ = new ReplaySubject<StateStatus>(1);
+  // movieDetailsStatus$ = new ReplaySubject<StateStatus>(1);
+  // videoLinksStatus$ = new ReplaySubject<StateStatus>(1);
+  // castStateStatus$ = new ReplaySubject<StateStatus>(1);
+  // relatedMoviesStatus$ = new ReplaySubject<StateStatus>(1);
 
-  get movieDetails(): MovieStateDetails {
-    return this._movieRef.state.details!
-  }
+  movieDetails: Signal<MovieStateDetails>;
+  videoLinks: Signal<readonly SafeResourceUrl[]>;
+  cast: Signal<readonly { readonly id: number; readonly name: string; readonly profilePath: string }[]>;
+  relatedMovies: Signal<readonly MovieListStateItem[]>;
+  hasVideoLinks: Signal<boolean>;
+  movieDetailsStatus: Signal<StateStatus>;
+  videoLinksStatus: Signal<StateStatus>;
+  castStateStatus: Signal<StateStatus>;
+  relatedMoviesStatus: Signal<StateStatus>;
 
   constructor(
     private _store: Store<AppState>,
@@ -47,68 +53,94 @@ export class MoviePageViewModel implements OnDestroy {
     castRef: CastRef,
     relatedMoviesRef: RelatedMoviesRef
     ) {
+    super();
 
-    this.movieDetails$ = _store.pipe(
+    const movieDetails$ = _store.pipe(
       select(({ singleMovie }) => singleMovie.details!),
       filter((details) => details !== null),
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.videoLinks$ = _store.pipe(
+    this.movieDetails = this.toSignal(_movieRef.state.details!, movieDetails$);
+
+    const videoLinks$ = _store.pipe(
       select(({ videos }) => videos.links.map((link) => domSanitizer.bypassSecurityTrustResourceUrl(link))),
       nzScheduler.switchOn(Priority.low),
     );
 
-    this.cast$ = _store.pipe(
+    this.videoLinks = this.toSignal([], videoLinks$);
+
+    const cast$ = _store.pipe(
       select(({ cast }) => cast.persons),
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.relatedMovies$ = _store.pipe(
+    this.cast = this.toSignal(castRef.state.persons, cast$);
+
+    const relatedMovies$ = _store.pipe(
       select(({ relatedMovies }) => relatedMovies.movies),
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.hasVideoLinks$ = _store.pipe(
+    this.relatedMovies = this.toSignal(relatedMoviesRef.state.movies, relatedMovies$);
+
+    const hasVideoLinks$ = _store.pipe(
       select(({ videos }) => videos.links.length > 0),
       nzScheduler.switchOn(Priority.low)
     );
 
-    merge(
+    this.hasVideoLinks = this.toSignal(false, hasVideoLinks$);
+
+    const movieDetailsStatus$ = merge(
       actions$.pipe(ofType(getSignleMovieByIdStart), map(() => StateStatus.pending)),
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateSingleMovieState), map(({ newState }) => newState.details === null ? StateStatus.empty : StateStatus.complete))
     ).pipe(
-      startWith(signleMovieRef.state.details === null ? StateStatus.empty : StateStatus.complete),
+      // startWith(signleMovieRef.state.details === null ? StateStatus.empty : StateStatus.complete),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.movieDetailsStatus$);
+      // takeUntil(this._destory$)
+    );
+
+    this.movieDetailsStatus = this.toSignal(
+      signleMovieRef.state.details === null ? StateStatus.empty : StateStatus.complete,
+      movieDetailsStatus$
+    )
 
 
-    merge(
+    const videoLinksStatus$ = merge(
       actions$.pipe(ofType(getVideosForMovieByIdStart), map(() => StateStatus.pending)),
       actions$.pipe(ofType(videosStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateVideosState), map(({ newState }) => newState.links.length ? StateStatus.complete : StateStatus.empty))
     ).pipe(
-      startWith(videosRef.state.links.length ? StateStatus.complete : StateStatus.empty),
+      // startWith(videosRef.state.links.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.videoLinksStatus$);
+      // takeUntil(this._destory$)
+    );
 
-    merge(
+    this.videoLinksStatus = this.toSignal(
+      videosRef.state.links.length ? StateStatus.complete : StateStatus.empty,
+      videoLinksStatus$
+    );
+
+    const castStateStatus$ = merge(
       actions$.pipe(ofType(getCastForMovieByIdStart), map(() => StateStatus.pending)),
       actions$.pipe(ofType(castSateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateCastState), map(({ newState }) => newState.persons.length ? StateStatus.complete: StateStatus.empty))
     ).pipe(
-      startWith(castRef.state.persons.length ? StateStatus.complete: StateStatus.empty),
+      // startWith(castRef.state.persons.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.castStateStatus$);
+      // takeUntil(this._destory$)
+    );
 
-    merge(
+    this.castStateStatus = this.toSignal(
+      castRef.state.persons.length ? StateStatus.complete: StateStatus.empty,
+      castStateStatus$
+    );
+
+    const relatedMoviesStatus$ = merge(
       actions$.pipe(ofType(getRelatedMoviesByIdStart), map(() => StateStatus.pending)),
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateRelatedMovieListState), map(({ newState }) => newState.movies.length ? StateStatus.complete: StateStatus.empty))
@@ -116,8 +148,13 @@ export class MoviePageViewModel implements OnDestroy {
       startWith(relatedMoviesRef.state.movies.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.relatedMoviesStatus$)
+      // takeUntil(this._destory$)
+    );
+
+    this.relatedMoviesStatus = this.toSignal(
+      relatedMoviesRef.state.movies.length ? StateStatus.complete: StateStatus.empty,
+      relatedMoviesStatus$
+    )
 
     router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
@@ -138,7 +175,8 @@ export class MoviePageViewModel implements OnDestroy {
 
   }
 
-  ngOnDestroy(): void {
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
     this._store.dispatch(clearSingleMovieState());
     this._store.dispatch(clearVideosState());
     this._store.dispatch(clearCastState());

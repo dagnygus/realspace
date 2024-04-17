@@ -1,10 +1,10 @@
 import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, PLATFORM_ID, Signal, TemplateRef, ViewContainerRef, isSignal } from "@angular/core";
 import { NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, filter, of, switchAll } from "rxjs";
 import { Priority, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isSubscribable, assertNoopZoneEnviroment, NzScheduler, fromSignal } from "../../core";
-import { NZ_LET_CONFIG, NZ_QUERY_VIEW, NzLetConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
+import { NZ_LET_CONFIG, NzLetConfiguration } from "../injection-tokens/injection-tokens";
 
 @Directive({ selector: '[nzLet]', standalone: true })
-export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewItem {
+export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy {
 
   private _abort$ = new Subject<void>();
   private _subscription = new Subscription();
@@ -12,13 +12,11 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
   private _priority: Priority;
   private _nzLet$$ = new ReplaySubject<Observable<T>>
   private _viewRef: EmbeddedViewRef<NzLetContext<T>> | null = null;
-  private _queryView: QueryView | null = null;
   private _detach$$ = new ReplaySubject<Observable<boolean>>(1);
   private _detach = false;
   private _optimized$$ = new ReplaySubject<Observable<boolean>>();
   private _optimized = false;
   private _nonobservable$: Observable<T> | null = null;
-  private _lockNzLetChangeDetection = false;
   private _syncCreation?: boolean;
 
   @Input() set nzLet(nzLet: Signal<T> | Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T>) {
@@ -70,19 +68,16 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
               private _templateRef: TemplateRef<NzLetContext<T>>,
               private _changeDetectorRef: ChangeDetectorRef,
               @Optional() @Inject(NZ_LET_CONFIG) config: NzLetConfiguration | null,
-              @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              private _nzScheduler: NzScheduler,
               private _injector: Injector) {
 
     assertNoopZoneEnviroment();
     const defaultPriority = config?.defaultPriority ?? Priority.normal;
-    const notifyQueryView = config?.defaultPriority ?? true;
     const detach = config?.detach ?? false;
     const optimized = config?.optimized ?? false;
 
     this._syncCreation = config?.syncCreation;
 
-    this._optimized = optimized && this._nzScheduler.enabled;
+    this._optimized = optimized && NzScheduler.enabled;
     this._optimized$$.next(of(this._optimized))
 
     this._priority = defaultPriority;
@@ -91,38 +86,9 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
     this._detach = detach;
     this._detach$$.next(of(detach));
 
-    if (notifyQueryView && this._nzScheduler.enabled) {
-      this._queryView = queryView;
-    }
-  }
-
-  onBeforeQueryViewCheck(): void {
-    this._lockNzLetChangeDetection = true
-    if (this._viewRef && this._detach) {
-      this._viewRef.reattach()
-    }
-  }
-
-  onAfterQueryViewCheck(): void {
-    this._lockNzLetChangeDetection = false
-    if (this._viewRef && this._detach) {
-      this._viewRef.detach()
-    }
-  }
-
-  onQueryViewCheckRequested(): void {
-    // noop
-  }
-
-  onQueryViewCheckAborted(): void {
-    // noop
   }
 
   ngDoCheck(): void {
-    if (this._lockNzLetChangeDetection) {
-      return;
-    }
-
     if (this._nonobservable$ && !this._optimized) {
       this._nzLet$$.next(this._nonobservable$);
     }
@@ -130,11 +96,7 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
 
   ngOnInit(): void {
 
-    if (this._queryView) {
-      this._queryView.register(this)
-    }
-
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
       this._subscription.add(this._optimized$$.pipe(
         switchAll()
       ).subscribe((optimized) => this._optimized = optimized));
@@ -204,12 +166,6 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
     this._subscription.unsubscribe();
     this._abort$.next();
     this._abort$.complete();
-    if (this._queryView) {
-      if (this._viewRef) {
-        this._queryView.dismiss(this._viewRef);
-        this._queryView.unregister(this);
-      }
-    }
   }
 
   private _updateView(view: EmbeddedViewRef<NzLetContext<T>>, nzLet: T): void {
@@ -228,9 +184,6 @@ export class NzLetDirective<T> implements DoCheck, OnInit, OnDestroy, QueryViewI
         viewRef.detach();
       }
       detectChangesSync(viewRef);
-      if (this._queryView) {
-        this._queryView.notify(this);
-      }
     });
     this._riseRenderCallback(nzLet);
   }

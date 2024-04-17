@@ -1,10 +1,14 @@
-import { isEnabled, onSchedulerDone, onStable } from './../enviroment/enviroment';
-import { Injectable } from "@angular/core";
+import { ChangeDetectorRef, Injectable } from "@angular/core";
 import { Priority } from "../scheduler/priority";
 import { MonoTypeOperatorFunction, Observable, Observer, Subscription } from "rxjs";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
-import { assertNoopZoneEnviroment, onSchedulerStart } from "../enviroment/enviroment";
+import { assertNoopZoneEnviroment } from "../enviroment/enviroment";
+import { internalScheduleWork } from '../change-detection/change-detection';
+import { NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_NOOP_VOID_FN, NZ_ON_DONE, NZ_ON_STABLE, NZ_ON_START, NZ_ON_UNSTABLE, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from '../globals/globals';
+
+declare const __noop_zone_globals__: NzGlobalsRef;
+const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
 
 @Injectable({ providedIn: 'root' })
 export class NzScheduler {
@@ -12,19 +16,52 @@ export class NzScheduler {
   readonly onSchedulerStart: Observable<void>;
   readonly onSchedulerDone: Observable<void>;
   readonly onStable: Observable<void>;
-  readonly enabled = isEnabled();
+  readonly onUnstable: Observable<void>;
+  // readonly enabled = isEnabled();
+
+  get workRunning(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) === NzFlags.WorkRunnig;
+  }
+
+  get enabled(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) !== NzFlags.SchdulerDisabled;
+  }
+
+  get disabled(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) === NzFlags.SchdulerDisabled;
+  }
+
+  static get workRunning(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) === NzFlags.WorkRunnig;
+  }
+
+  static get enabled(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) !== NzFlags.SchdulerDisabled;
+  }
+
+  static get disabled(): boolean {
+    return (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) === NzFlags.SchdulerDisabled;
+  }
 
   constructor() {
     assertNoopZoneEnviroment();
 
-    if (!this.enabled) {
-      this.onSchedulerStart = new Observable();
-      this.onSchedulerDone = new Observable();
-      this.onStable = new Observable();
+    this.onSchedulerStart = nzGlobals[NZ_ON_START].asObservable();
+    this.onSchedulerDone = nzGlobals[NZ_ON_DONE].asObservable();
+    this.onStable = nzGlobals[NZ_ON_STABLE].asObservable();
+    this.onUnstable = nzGlobals[NZ_ON_UNSTABLE].asObservable();
+
+  }
+
+  static onWorkDone(cb: () => void): () => void {
+    if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) {
+      nzGlobals[NZ_WORK_DONE_LISTENERS].push(cb);
+      return () => {
+        const index = nzGlobals[NZ_WORK_DONE_LISTENERS].indexOf(cb);
+        nzGlobals[NZ_WORK_DONE_LISTENERS].splice(index, 1);
+      }
     } else {
-      this.onSchedulerDone = onSchedulerDone;
-      this.onSchedulerStart = onSchedulerStart;
-      this.onStable = onStable;
+      return nzGlobals[NZ_NOOP_VOID_FN];
     }
   }
 
@@ -44,19 +81,19 @@ export class NzScheduler {
 
         const innserObserver: Observer<T> = {
           next: (val) => {
-            nextTask = scheduleCallback(priority, () => {
-              observer.next(val)
-              nextTask = null;
-            })
+            nextTask = internalScheduleWork(priority, () => {
+              observer.next(val);
+              nextTask = null
+            });
           },
           complete: () => {
-            completeTask = scheduleCallback(priority, () => {
+            completeTask = internalScheduleWork(priority, () => {
               observer.complete();
               completeTask = null;
-            })
+            });
           },
           error: (err) => {
-            errorTask = scheduleCallback(priority, () => {
+            errorTask = internalScheduleWork(priority, () => {
               observer.error(err);
               errorTask = null;
             })
@@ -96,8 +133,8 @@ export class NzScheduler {
               cancelCallback(nextTask);
               nextTask = null;
             }
-            nextTask = scheduleCallback(priority, () => {
-              observer.next(val)
+            nextTask = internalScheduleWork(priority, () => {
+              observer.next(val);
               nextTask = null;
             })
           },
@@ -106,7 +143,7 @@ export class NzScheduler {
               cancelCallback(completeTask);
               completeTask = null;
             }
-            completeTask = scheduleCallback(priority, () => {
+            completeTask = internalScheduleWork(priority, () => {
               observer.complete();
               completeTask = null;
             })
@@ -116,7 +153,7 @@ export class NzScheduler {
               cancelCallback(errorTask);
               errorTask = null;
             }
-            errorTask = scheduleCallback(priority, () => {
+            errorTask = internalScheduleWork(priority, () => {
               observer.error(err);
               errorTask = null;
             })
@@ -148,40 +185,20 @@ export class NzScheduler {
 
       const newObservable = new Observable<T>((observer) => {
         let subscription: Subscription | null = null;
+        let task: ReactSchedulerTask | null = null;
 
-        const task = scheduleCallback(priority, () => {
+        task = internalScheduleWork(priority, () => {
           subscription = observable.subscribe(observer);
         });
 
         return () => {
-          cancelCallback(task);
+          if (task) { cancelCallback(task); }
           if (subscription) { subscription.unsubscribe(); }
         };
       });
 
       return newObservable;
     }
-  }
-}
-
-export class FakeNzScheduler implements NzScheduler {
-
-  readonly onSchedulerStart = new Observable<void>();
-  readonly onSchedulerDone = new Observable<void>();
-  readonly onStable = new Observable<void>();
-
-  get enabled(): boolean { return isEnabled(); }
-
-  constructor() {}
-
-  observeOn<T>(priority: Priority): MonoTypeOperatorFunction<T> {
-    return (observable) => observable;
-  }
-  switchOn<T>(priority: Priority): MonoTypeOperatorFunction<T> {
-    return (observable) => observable
-  }
-  subscribeOn<T>(priority: Priority): MonoTypeOperatorFunction<T> {
-    return (observable) => observable;
   }
 
 }

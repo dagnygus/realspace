@@ -1,5 +1,5 @@
 import { AfterContentChecked, ChangeDetectorRef, Directive, Host, Inject, Input, OnDestroy, OnInit, Optional, TemplateRef, ViewContainerRef, ViewRef } from "@angular/core";
-import { NZ_DETACHED_VIEW_CONFIG, NZ_QUERY_VIEW, NzDetachedViewConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
+import { NZ_DETACHED_VIEW_CONFIG, NzDetachedViewConfiguration } from "../injection-tokens/injection-tokens";
 import { NzScheduler, Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, scheduleWork } from "../../core";
 import { NextObserver, Observable, Subject, Subscription } from "rxjs";
 import { DefaultNzContext } from "../utils/utils";
@@ -8,12 +8,11 @@ import { DefaultNzContext } from "../utils/utils";
   selector: '[nzDetachedView]',
   standalone: true,
 })
-export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnDestroy, QueryViewItem {
+export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnDestroy {
 
   private _priority: Priority;
   private _subscription = new Subscription;
   private _abort$ = new Subject<void>;
-  private _queryView: QueryView | null = null;
   private _viewRef: ViewRef | null = null;
   private _isInit = false;
   private _syncCreation?: boolean;
@@ -32,38 +31,15 @@ export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnD
               private _templateRef: TemplateRef<DefaultNzContext>,
               private _changeDetectorRef: ChangeDetectorRef,
               @Optional() @Inject(NZ_DETACHED_VIEW_CONFIG) config: NzDetachedViewConfiguration | null,
-              @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
               private _nzScheduler: NzScheduler) {
 
     assertNoopZoneEnviroment();
 
     this._priority = config?.defaultPriority ?? Priority.normal;
     this._syncCreation = config?.syncCreation
-    const notifyQueryView = config?.notifyQueryView ?? true;
-    if (notifyQueryView && this._nzScheduler.enabled) {
-      this._queryView = queryView;
-    }
+
   }
 
-  onBeforeQueryViewCheck(): void {
-    if (this._viewRef) {
-      this._viewRef.reattach();
-    }
-  }
-
-  onAfterQueryViewCheck(): void {
-    if (this._viewRef) {
-      this._viewRef.detach();
-    }
-  }
-
-  onQueryViewCheckRequested(): void {
-    // noop
-  }
-
-  onQueryViewCheckAborted(): void {
-    // noop
-  }
 
   detectChanges(priority?: Priority, abort$?: Observable<void | unknown>): void {
     if (!this._viewRef) { return; }
@@ -85,10 +61,6 @@ export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnD
 
   ngOnInit(): void {
 
-    if (this._queryView) {
-      this._queryView.register(this)
-    }
-
     if (this._nzScheduler.enabled && !this._syncCreation) {
 
       scheduleWork(this._priority, this._abort$, () => {
@@ -107,17 +79,6 @@ export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnD
         scheduleWork(this._priority, this._abort$, () => {
           renderCb.next();
         });
-      }
-
-      if (this._queryView) {
-        if (this._queryView.isChecking()) {
-          const queryView = this._queryView;
-          scheduleWork(this._priority, this._abort$, () => {
-            queryView.notify(this);
-          })
-        } else {
-          this._queryView.notify(this);
-        }
       }
 
     } else {
@@ -150,10 +111,6 @@ export class NzDetachedViewDirective implements OnInit, AfterContentChecked, OnD
     this._subscription.unsubscribe();
     this._abort$.next();
     this._abort$.complete();
-    if (this._queryView) {
-      this._queryView.dismiss(this);
-      this._queryView.unregister(this);
-    }
   }
 
   static ngTemplateGuard_nzDetachedView: 'binding';

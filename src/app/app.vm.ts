@@ -1,50 +1,72 @@
-import { Injectable } from "@angular/core";
+import { Injectable, Signal } from "@angular/core";
 import { BehaviorSubject, Observable, asyncScheduler, distinctUntilChanged, filter, map, merge, observeOn, of, startWith, switchMap, take, tap } from "rxjs";
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout'
 import { NavigationCancel, NavigationEnd, NavigationStart, Router } from "@angular/router";
 import { NzScheduler, Priority } from "./noop-zone";
 import { Platform } from "@angular/cdk/platform";
 import { FormControl } from "@angular/forms";
+import { ViewModelBase } from "./models/object-model";
 
 @Injectable()
-export class AppViewModel {
+export class AppViewModel extends ViewModelBase {
   private _sidenavOpen$ = new BehaviorSubject(false);
   private _searchboxExpanded$ = new BehaviorSubject(false);
 
   private _sidenavOpen  = false;
   private _searchboxExpanded = false
 
-  sidenavOpen$: Observable<boolean>;
-  searchboxExpanded$:Observable<boolean>;
-  sidenavMode$: Observable<'over' | 'side' | 'push'>;
-  hasBackdrop$: Observable<boolean>;
-  isSmallViewPort$: Observable<boolean>;
-  isBigViewPort$: Observable<boolean>;
+  // sidenavOpen$: Observable<boolean>;
+  // searchboxExpanded$:Observable<boolean>;
+  // sidenavMode$: Observable<'over' | 'side' | 'push'>;
+  // hasBackdrop$: Observable<boolean>;
+  // isSmallViewPort$: Observable<boolean>;
+  // isBigViewPort$: Observable<boolean>;
   searchBoxFormControl = new FormControl('');
-  isNavigating$: Observable<boolean>;
+  // isNavigating$: Observable<boolean>;
+
+  sidenavOpen: Signal<boolean>;
+  searchboxExpanded: Signal<boolean>;
+  sidenavMode: Signal<'over' | 'side' | 'push'>;
+  hasBackdrop: Signal<boolean>;
+  isSmallViewPort: Signal<boolean>;
+  isBigViewPort: Signal<boolean>;
+  isNavigating: Signal<boolean>;
 
   constructor(breakpointObserver: BreakpointObserver,
               platform: Platform,
               nzScheduler: NzScheduler,
               private _router: Router) {
-
+    super();
     const breakpoint$ = breakpointObserver.observe('(min-width: 1024px)');
+    let isBigViewPort: boolean
+    let isSmallViewPort: boolean;
+    let isSmallViewPort$: Observable<boolean>;
+    let isBigViewPort$: Observable<boolean>;
+    let sidenavMode$: Observable<'over' | 'side' | 'push'>;
 
     if (platform.isBrowser) {
-      this.isSmallViewPort$ = breakpoint$.pipe(map((state) => !state.matches));
-      this.isBigViewPort$ = breakpoint$.pipe(map((state) => state.matches));
-      this.sidenavMode$ = breakpoint$.pipe(map<BreakpointState, 'over' | 'side' | 'push'>((state) => state.matches ? 'side' : 'over'))
+      isBigViewPort = breakpointObserver.isMatched('(min-width: 1024px)');
+      isSmallViewPort = !isBigViewPort;
+      isSmallViewPort$ = breakpoint$.pipe(map((state) => !state.matches));
+      isBigViewPort$ = breakpoint$.pipe(map((state) => state.matches));
+      sidenavMode$ = breakpoint$.pipe(map<BreakpointState, 'over' | 'side' | 'push'>((state) => state.matches ? 'side' : 'over'))
     } else {
-      this.isSmallViewPort$ = this.isBigViewPort$ = of(true);
-      this.sidenavMode$ = of('over');
+      isSmallViewPort$ = isBigViewPort$ = of(true);
+      isBigViewPort = isSmallViewPort = true;
+      sidenavMode$ = of('over');
     }
 
-    this.hasBackdrop$ = breakpoint$.pipe(
+    this.isSmallViewPort = this.toSignal(isSmallViewPort, isSmallViewPort$);
+    this.isBigViewPort = this.toSignal(isBigViewPort, isBigViewPort$);
+    this.sidenavMode = this.toSignal(isBigViewPort ? 'side' : 'over', sidenavMode$);
+
+    const hasBackdrop$ = breakpoint$.pipe(
       map((state) => !state.matches),
-      startWith(true)
     );
 
-    this.sidenavOpen$ = nzScheduler.onStable.pipe(
+    this.hasBackdrop = this.toSignal(true, hasBackdrop$);
+
+    const sidenavOpen$ = nzScheduler.onStable.pipe(
       take(1),
       observeOn(asyncScheduler),
       switchMap(() =>merge(
@@ -69,7 +91,9 @@ export class AppViewModel {
       tap((value) => this._sidenavOpen = value)
     );
 
-    this.searchboxExpanded$ = merge(
+    this.sidenavOpen = this.toSignal(false, sidenavOpen$);
+
+    const searchboxExpanded$ = merge(
       this._searchboxExpanded$.pipe(
         filter(() => !breakpointObserver.isMatched('(min-width: 562px)'))
       ),
@@ -81,15 +105,21 @@ export class AppViewModel {
       tap((value) => this._searchboxExpanded = value)
     );
 
-    this.isNavigating$ = nzScheduler.onStable.pipe(
+    this.searchboxExpanded = this.toSignal(
+      breakpointObserver.isMatched('(min-width: 562px)'),
+      searchboxExpanded$
+    );
+
+    const isNavigating$ = nzScheduler.onStable.pipe(
       take(1),
       observeOn(asyncScheduler),
       switchMap(() => merge(
         _router.events.pipe(filter((e) => e instanceof NavigationStart), map(() => true)),
         _router.events.pipe(filter((e) => e instanceof NavigationEnd || e instanceof NavigationCancel), map(() => false))
       )),
-      startWith(false)
     );
+
+    this.isNavigating = this.toSignal(false, isNavigating$);
   }
 
   openSidenav(): void {
@@ -104,9 +134,9 @@ export class AppViewModel {
     this._sidenavOpen$.next(!this._sidenavOpen$.value);
   }
 
-  // isSidenavOpen(): boolean {
-  //   return this._sidenavOpen;
-  // }
+  isSidenavOpen(): boolean {
+    return this._sidenavOpen;
+  }
 
   // expandSearchbox(): void {
   //   this._searchboxExpanded$.next(true);

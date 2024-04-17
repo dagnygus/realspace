@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
-import { MovieState } from "../../models/models";
-import { BaseStateRef } from "../base-state-ref";
+import { MovieState } from "../../models/abstract-models";
+import { BaseStateRef } from "../../models/object-model";
 
 export const initialSingleMovieState: MovieState = {
   details: null

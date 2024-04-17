@@ -2,26 +2,26 @@
   <div class="heading-container mat-elevation-z3">
     <h3 class="heading">Now playing</h3>
   </div>
-  <app-movie-slider [movieListSource]="vm.nowPlaingMovies$" [movieListStatusSource]="vm.nowPlaingMoviesStateStatus$"/>
+  <app-movie-slider [movieListSource]="vm.nowPlaingMovies" [movieListStatusSource]="vm.nowPlaingMoviesStateStatus"/>
 </section>
 
 <section class="my-[16px] min-[1024px]:my-[48px] w-full max-w-[984px] mx-auto">
   <div class="heading-container mat-elevation-z3">
     <h3 class="heading">Popular</h3>
   </div>
-  <app-movie-slider [movieListSource]="vm.popularMovies$" [movieListStatusSource]="vm.popularMoviesStateStatus$"/>
+  <app-movie-slider [movieListSource]="vm.popularMovies" [movieListStatusSource]="vm.popularMoviesStateStatus"/>
 </section>
 
 <section class="my-[16px] min-[1024px]:my-[48px] w-full max-w-[984px] mx-auto">
   <div class="heading-container mat-elevation-z3">
     <h3 class="heading">Top Rated</h3>
   </div>
-  <app-movie-slider [movieListSource]="vm.topRatedMovies$" [movieListStatusSource]="vm.topRatedMoviesStateStatus$"/>
+  <app-movie-slider [movieListSource]="vm.topRatedMovies" [movieListStatusSource]="vm.topRatedMoviesStateStatus"/>
 </section>
 
 <section class="my-[16px] min-[1024px]:my-[48px] w-full max-w-[984px] mx-auto">
   <div class="heading-container mat-elevation-z3">
     <h3 class="heading">Upcoming</h3>
   </div>
-  <app-movie-slider [movieListSource]="vm.upcomingMovies$" [movieListStatusSource]="vm.upcomingMoviesStateStatus$"/>
+  <app-movie-slider [movieListSource]="vm.upcomingMovies" [movieListStatusSource]="vm.upcomingMoviesStateStatus"/>
 </section>

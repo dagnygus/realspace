@@ -1,6 +1,6 @@
 import { Injectable } from "@angular/core";
-import { VideosState } from "../../models/models";
-import { BaseStateRef } from "../base-state-ref";
+import { VideosState } from "../../models/abstract-models";
+import { BaseStateRef } from "../../models/object-model";
 
 export const initialVideosState: VideosState = {
   links: []

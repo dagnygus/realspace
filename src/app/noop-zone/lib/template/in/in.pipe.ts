@@ -2,6 +2,7 @@ import { ChangeDetectorRef, EffectRef, Inject, Injector, OnDestroy, Optional, Pi
 import { Priority, assertNoopZoneEnviroment, detectChanges, isPromiseLike, isSubscribable } from "../../core";
 import { Observable, Subscribable, Unsubscribable } from "rxjs";
 import { NZ_IN_PIPE_DEFAULT_PRIORITY } from "../injection-tokens/injection-tokens";
+import { ReactiveNode, SIGNAL, setActiveConsumer } from "@angular/core/primitives/signals";
 
 declare const ngDevMode: any
 
@@ -42,18 +43,35 @@ class SubscribableStrategy implements SubscriptionStrategy {
 class SignalStrategy implements SubscriptionStrategy {
 
   private _effectRef: EffectRef | null = null;
-  private _notBinded = true;
+  private _init = false;
+  private _node: ReactiveNode = null!;
+  private _initialVersion!: number
 
   constructor(private _injector: Injector) {}
 
   attach(target: Signal<any>, callback: (value: any) => void): void {
-    this._effectRef = untracked(() => effect(() => {
-      callback(target());
-      this._notBinded = false;
-    }, { injector: this._injector, manualCleanup: true }));
-    if (this._notBinded) {
-      callback(target());
+
+    this._node = target[SIGNAL] as ReactiveNode;
+    this._initialVersion = this._node.version;
+
+    const prev = setActiveConsumer(null)
+    try {
+      this._effectRef = effect(() => {
+        if (this._init) {
+          callback(target());
+        } else {
+          const value = target();
+          this._init = true;
+          if (this._initialVersion !== this._node.version) {
+            callback(value);
+          }
+        }
+      }, { injector: this._injector, manualCleanup: true })
+    } finally {
+      setActiveConsumer(prev);
     }
+
+    callback(target());
   }
   dispose(): void {
     if (this._effectRef) { this._effectRef.destroy(); }

@@ -1,8 +1,10 @@
-import { NzIfDirecive } from "./nz-if.directive";
+import { NzIfDirective } from "./nz-if.directive";
 import { NgModule } from "@angular/core";
+import { SigIfDirective } from "./sig-if.directive";
 
 const moduleImports = [
-  NzIfDirecive,
+  NzIfDirective,
+  SigIfDirective
 ]
 
 @NgModule({

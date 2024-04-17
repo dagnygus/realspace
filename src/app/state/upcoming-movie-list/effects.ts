@@ -3,10 +3,10 @@ import { MoviesHttpService } from "../../common/services/movies-http.service";
 import { UpcomingMoviesRef } from "./state";
 import { clearUpcomingMovieListState, getUpcomingMovies, getUpcomingMoviesStart, upcomingMovieListStateError, updateUpcomingMovieListState } from "./actions";
 import { catchError, exhaustMap, filter, map, of, takeUntil, tap } from "rxjs";
-import { MovieListStateItem, MovieListState } from "../../models/models";
+import { MovieListStateItem, MovieListState } from "../../models/abstract-models";
 import { Injectable } from "@angular/core";
 import { NzScheduler, Priority } from "../../noop-zone";
-import { movieListInitialState } from "../movie-list-initial-state";
+import { movieListInitialState } from "../../models/object-model";
 import { Platform } from "@angular/cdk/platform";
 import { ServerDataCache } from "../../common/services/server-data-cache.service";
 

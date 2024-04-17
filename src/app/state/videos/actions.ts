@@ -1,5 +1,5 @@
 import { createAction, props } from "@ngrx/store";
-import { VideosState } from "../../models/models";
+import { VideosState } from "../../models/abstract-models";
 
 export const enum VideosActionNames {
   getVideosForMovieById = '[Videos] get videos for movie by id',

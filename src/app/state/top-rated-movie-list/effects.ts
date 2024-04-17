@@ -4,9 +4,9 @@ import { MoviesHttpService } from "../../common/services/movies-http.service";
 import { TopRatedMoviesRef } from "./state";
 import { clearTopRatedMovieListState, getTopRatedMovies, getTopRatedMoviesStart, topRatedListStateError, updateTopRatedMovieListState } from "./actions";
 import { catchError, exhaustMap, filter, map, of, repeat, switchMap, takeUntil, tap } from "rxjs";
-import { MovieListState, MovieListStateItem } from "../../models/models";
+import { MovieListState, MovieListStateItem } from "../../models/abstract-models";
 import { NzScheduler, Priority } from "../../noop-zone";
-import { movieListInitialState } from "../movie-list-initial-state";
+import { movieListInitialState } from "../../models/object-model";
 import { Platform } from "@angular/cdk/platform";
 import { ServerDataCache } from "../../common/services/server-data-cache.service";
 

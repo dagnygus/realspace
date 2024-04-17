@@ -1,12 +1,12 @@
 import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, EventEmitter, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, Output, PLATFORM_ID, Signal, TemplateRef, ViewContainerRef, ViewRef, isSignal } from "@angular/core";
 import { BehaviorSubject, NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, distinctUntilChanged, of, switchAll, tap } from "rxjs";
-import { NZ_IF_CONFIG, NZ_QUERY_VIEW, NzIfConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
+import { NZ_IF_CONFIG, NzIfConfiguration } from "../injection-tokens/injection-tokens";
 import { Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, scheduleWork, fromPromiseLike, fromSubscribable, isPromiseLike, isSubscribable, NzScheduler, fromSignal } from "../../core";
 
 @Directive({
   selector: '[nzIf]', standalone: true
 })
-export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewItem {
+export class NzIfDirective<T> implements OnInit, DoCheck, OnDestroy {
 
   private _subscription = new Subscription();
   private _abort$ = new Subject<void>();
@@ -23,11 +23,8 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
   private _priority$$ = new ReplaySubject<Observable<Priority>>(1);
   private _optimized$$ = new ReplaySubject<Observable<boolean>>(1);
   private _optimized = false;
-  private _queryView: QueryView | null = null;
   private _valueRecived = false;
   private _dirty = false;
-  private _queryViewCheckRequested = false;
-  private _lockNzIfChangeDetection = false;
 
   @Input() set nzIf(value: Signal<T> | Observable<T> | Subscribable<T> | PromiseLike<T> | Promise<T> | T) {
     this._dirty = true;
@@ -100,9 +97,7 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
 
   constructor(templateRef: TemplateRef<NzIfContext<T>>,
               private _viewContainerRef: ViewContainerRef,
-              @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
               @Optional() @Inject(NZ_IF_CONFIG) config: NzIfConfiguration | null,
-              private _nzScheduler: NzScheduler,
               private _injector: Injector) {
 
     assertNoopZoneEnviroment();
@@ -110,11 +105,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
 
     const priority = config?.defaultPriority ?? Priority.normal;
     const optimized = config?.optimized ?? false;
-    const notifyQueryView = config?.notifyQueryView ?? true;
-
-    if (notifyQueryView && this._nzScheduler.enabled) {
-      this._queryView = queryView;
-    }
 
     this._priority = priority;
     this._priority$$.next(of(priority));
@@ -124,25 +114,18 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
   }
 
   ngDoCheck(): void {
-    if (this._lockNzIfChangeDetection) {
-      return;
-    }
 
     if (this._nonobservable$ && !this._optimized) {
       this._nzIf$.next(this._nonobservable$);
       return;
     }
-    if (this._queryView && this._context && this._thenViewRef && !(this._nonobservable$ || this._valueRecived)) {
+    if (this._context && this._thenViewRef && !(this._nonobservable$ || this._valueRecived)) {
       this._update(this._context);
       return;
     }
   }
 
   ngOnInit(): void {
-
-    if(this._queryView) {
-      this,this._queryView.register(this);
-    }
 
     this._subscription.add(this._optimized$$.pipe(
       switchAll()
@@ -176,7 +159,7 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
 
     const innerNzIf$ = new Subject<Observable<T>>();
 
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
 
       this._subscription.add(innerNzIf$.pipe(
         switchAll()
@@ -235,27 +218,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
     this._subscription.unsubscribe();
     this._abort$.next();
     this._abort$.complete();
-
-    if (this._queryView) {
-      this._queryView.dismiss(this);
-      this._queryView.unregister(this)
-    }
-  }
-
-  onBeforeQueryViewCheck(): void {
-    this._lockNzIfChangeDetection = true
-  }
-
-  onAfterQueryViewCheck(): void {
-    this._lockNzIfChangeDetection = false
-  }
-
-  onQueryViewCheckRequested(): void {
-    // noop
-  }
-
-  onQueryViewCheckAborted(): void {
-    // noop
   }
 
   private _update(context: NzIfContext<T>): void {
@@ -266,7 +228,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
           this._clearElseView(context)
           const viewRef = this._createThenView(context);
           this._detectChangesSyncOn(viewRef);
-          this._notifyOnQueryView(this);
         });
         this._riseRenderCallback(context);
       } else {
@@ -284,7 +245,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
           if (viewRef) {
             this._detectChangesSyncOn(viewRef);
           }
-          this._notifyOnQueryView(this);
         });
         this._riseRenderCallback(context);
       } else {
@@ -377,12 +337,6 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
     detectChangesSync(viewRef)
   }
 
-  private _notifyOnQueryView(scope: object): void {
-    if (this._queryView) {
-        this._queryView.notify(scope);
-        this._queryViewCheckRequested = true;
-    }
-  }
 
   private _riseRenderCallback(context: NzIfContext<T>): void {
     if (this.nzIfRenderCallback) {
@@ -413,7 +367,7 @@ export class NzIfDirecive<T> implements OnInit, DoCheck, OnDestroy, QueryViewIte
 
   static ngTemplateGuard_nzIf: 'binding';
 
-  static ngTemplateContextGuard<T>(dir: NzIfDirecive<T>, ctx: any): ctx is NzIfContext<Exclude<T, false|0|''|null|undefined>> {
+  static ngTemplateContextGuard<T>(dir: NzIfDirective<T>, ctx: any): ctx is NzIfContext<Exclude<T, false|0|''|null|undefined>> {
     return true;
   }
 }

@@ -6,3 +6,7 @@ export enum Priority {
   low = 4,
   idle = 5,
 }
+
+export function coercePriority(priority: number): Priority {
+  return Math.round(priority < 1 ? 1 : priority > 5 ? 5 : priority);
+}

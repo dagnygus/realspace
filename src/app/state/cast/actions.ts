@@ -1,5 +1,5 @@
 import { createAction, props } from "@ngrx/store";
-import { CastState } from "../../models/models";
+import { CastState } from "../../models/abstract-models";
 
 export const enum CastActionNames {
   getCastForMovieById = '[Cast] get cast for movie by id',

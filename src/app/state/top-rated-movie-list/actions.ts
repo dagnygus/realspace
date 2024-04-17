@@ -1,5 +1,5 @@
 import { createAction, props } from "@ngrx/store";
-import { MovieListState } from "../../models/models";
+import { MovieListState } from "../../models/abstract-models";
 
 export const enum TopRatedMovieListActionNames {
   getTopRatedMovies = '[TopRatedMovieListActionNames] get now plaing movies',

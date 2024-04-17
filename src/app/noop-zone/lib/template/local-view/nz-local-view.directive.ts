@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Directive, Host, Inject, Input, OnDestroy, OnInit, Optional, PLATFORM_ID, TemplateRef, ViewContainerRef, ViewRef } from "@angular/core";
 import { NzScheduler, Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, scheduleWork } from "../../core";
 import { DefaultNzContext } from "../utils/utils";
-import { NZ_LOCAL_VIEW_CONFIG, NZ_QUERY_VIEW, NzLocalViewConfiguration, QueryView } from "../injection-tokens/injection-tokens";
+import { NZ_LOCAL_VIEW_CONFIG, NzLocalViewConfiguration } from "../injection-tokens/injection-tokens";
 import { NextObserver, Observable, Subject } from "rxjs";
 
 @Directive({
@@ -11,7 +11,6 @@ import { NextObserver, Observable, Subject } from "rxjs";
 export class NzLocalViewDirective implements OnInit, OnDestroy {
 
   private _abort$ = new Subject<void>();
-  private _queryView: QueryView | null = null;
   private _priority = Priority.normal;
   private _isInit = true;
   private _viewRef: ViewRef | null = null;
@@ -31,18 +30,11 @@ export class NzLocalViewDirective implements OnInit, OnDestroy {
   constructor(private _viewContainerRef: ViewContainerRef,
               private _templateRef: TemplateRef<DefaultNzContext>,
               private _changeDetectorRef: ChangeDetectorRef,
-              @Optional() @Inject(NZ_LOCAL_VIEW_CONFIG) config: NzLocalViewConfiguration | null,
-              @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              private _nzScheduler: NzScheduler) {
+              @Optional() @Inject(NZ_LOCAL_VIEW_CONFIG) config: NzLocalViewConfiguration | null,) {
     assertNoopZoneEnviroment();
 
     this.nzLocalView = config?.defaultPriority ?? Priority.normal;
     this._syncCreation = config?.syncCreation
-    const notifyQueryView = config?.notifyQueryView ?? true;
-
-    if (notifyQueryView && this._nzScheduler.enabled) {
-      this._queryView = queryView;
-    }
   }
 
   detectChanges(priority?: Priority, abort$?: Observable<void | unknown>): void {
@@ -52,7 +44,7 @@ export class NzLocalViewDirective implements OnInit, OnDestroy {
       priority = this._priority;
     }
 
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
       if (this._abort$) {
         detectChanges(this._viewRef, { priority, abort$ });
       } else {
@@ -65,17 +57,13 @@ export class NzLocalViewDirective implements OnInit, OnDestroy {
 
   ngOnInit(): void {
 
-    if (this._nzScheduler.enabled && !this._syncCreation) {
+    if (NzScheduler.enabled && !this._syncCreation) {
 
       scheduleWork(this._priority, this._abort$, () => {
         const context = new DefaultNzContext();
         const viewRef = this._viewContainerRef.createEmbeddedView(this._templateRef, context);
         context.$implicit = context.cdRef = viewRef;
         detectChangesSync(viewRef);
-
-        if (this._queryView) {
-          this._queryView.notify(this);
-        }
       });
 
       if (this.nzLocalViewRenderCallback) {
@@ -102,9 +90,6 @@ export class NzLocalViewDirective implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this._abort$.next();
     this._abort$.complete();
-    if (this._queryView) {
-      this._queryView.dismiss(this)
-    }
   }
 
   static ngTemplateGuard_nzQueryView: 'binding';

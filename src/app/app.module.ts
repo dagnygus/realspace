@@ -3,13 +3,13 @@ import { BrowserModule, provideClientHydration } from '@angular/platform-browser
 import { AppComponent } from './app.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { MatSidenavModule } from '@angular/material/sidenav';
-import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLocalViewModule, NzScheduler, Priority, inPipeDefaultPriority, patchNgNoopZoneForAngularCdk, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration } from './noop-zone';
+import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLetModule, NzLocalViewModule, NzScheduler, Priority, inPipeDefaultPriority, patchNgNoopZoneForAngularCdk, provideNzDetachedViewConfiguration, provideNzForConfiguration, provideNzLetConfiguration, provideNzWatchConfiguration } from './noop-zone';
 import { RealspaceContentComponent } from './common/components/realspace-content/realspace-content.component';
 import { RealspaceSidenavContentComponent } from './common/components/realspace-sidenav-content/realspace-sidenav-content.component';
 import { provideStore } from '@ngrx/store';
 import { provideEffects } from '@ngrx/effects';
 import { StoreRouterConnectingModule, routerReducer } from '@ngrx/router-store';
-import { NZ_LET_CONFIG, NZ_FOR_CONFIG, NZ_DETACHED_VIEW_CONFIG } from './utils/constants';
+import { NZ_LET_CONFIG, NZ_FOR_CONFIG, NZ_WATCH_CONFIG } from './utils/utils';
 import { CustomRouterSerializer } from './state/router/router-serializer';
 import { nowPlayingMoviesReducer } from './state/now-playing-movie-list/reducer';
 import { popularMoviesReducer } from './state/popular-movie-list/reducer';
@@ -36,6 +36,7 @@ import { take } from 'rxjs';
     InPipeModule,
     NzLocalViewModule,
     NzDetachedViewModule,
+    NzLetModule,
     MatSidenavModule,
     // PortalModule,
     NoopZoneEnviromentModule,
@@ -73,8 +74,8 @@ import { take } from 'rxjs';
     provideHttpClient(withFetch()),
     provideNzLetConfiguration(NZ_LET_CONFIG),
     provideNzForConfiguration(NZ_FOR_CONFIG),
-    provideNzDetachedViewConfiguration(NZ_DETACHED_VIEW_CONFIG),
     inPipeDefaultPriority(Priority.immediate),
+    provideNzWatchConfiguration(NZ_WATCH_CONFIG),
     provideStore({
       router: routerReducer,
       nowPlayingMovies: nowPlayingMoviesReducer,

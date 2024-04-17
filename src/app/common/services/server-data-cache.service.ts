@@ -1,7 +1,7 @@
 import { Platform } from "@angular/cdk/platform";
 import { DOCUMENT } from "@angular/common";
 import { Inject, Injectable } from "@angular/core";
-import { DataCache } from "../../models/models";
+import { DataCache } from "../../models/abstract-models";
 
 @Injectable({ providedIn: 'root' })
 export class ServerDataCache implements DataCache {

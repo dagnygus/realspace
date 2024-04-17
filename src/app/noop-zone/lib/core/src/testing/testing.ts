@@ -1,19 +1,20 @@
-import { Observable, Subject, asapScheduler, asyncScheduler, delay, firstValueFrom, merge, observeOn, take } from "rxjs";
-import { isNoopZoneModuleImported, isNoopZoneTestingEnviroment, onDoneSubject, onStableSubject, onStartSubject } from "../enviroment/enviroment";
-import { Priority } from "../scheduler/priority";
-import { getTaskQueue, scheduleCallback } from "../scheduler/scheduler";
-import { pop } from "../scheduler/scheduler-min-heap";
+import { Observable, asyncScheduler, firstValueFrom, merge, observeOn } from "rxjs";
+import { getTaskQueue } from "../scheduler/scheduler";
+import { NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_ON_DONE, NZ_ON_STABLE, NzFlags, NzGlobalsRef } from "../globals/globals";
 
+declare const __noop_zone_globals__: NzGlobalsRef;
+const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
 
-export async function waitUntilSchedulingDone(): Promise<void> {
+export async function waitUntilAllWorkDone(): Promise<void> {
 
-  if (!isNoopZoneTestingEnviroment()) {
-    throw new Error('[waitUntilSchedulingDone()] This function can be used only in testing enviroment!');
+  if ((nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.TestMode ) === NzFlags.Noop) {
+    throw new Error('[waitUntilAllWorkDone()] This function can be used only in testing enviroment!');
   }
 
-  if (isNoopZoneModuleImported()) {
-    throw new Error('[flushScheduler()] NoopZoneEnviromentModule detected! Test prevented!');
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.ModuleImported) {
+    throw new Error('[waitUntilAllWorkDone()] NoopZoneEnviromentModule detected! Test prevented!');
   }
+
 
   const taskQueue = getTaskQueue();
 
@@ -27,43 +28,13 @@ export async function waitUntilSchedulingDone(): Promise<void> {
     })
 
     await firstValueFrom(merge(
-      onStartSubject,
+      nzGlobals[NZ_ON_DONE],
       timeoutSource
     ))
   }
 
-  while(taskQueue.length) {
-    await firstValueFrom(onStableSubject.pipe(observeOn(asyncScheduler)))
-  }
-
-}
-
-export function flushScheduler(): void {
-
-  if (!isNoopZoneTestingEnviroment()) {
-    throw new Error('[waitUntilSchedulingDone()] This function can be used only in testing enviroment!');
-  }
-
-  if (isNoopZoneModuleImported()) {
-    throw new Error('[flushScheduler()] NoopZoneEnviromentModule detected! Test prevented!');
-  }
-
-  const taskQueue = getTaskQueue();
-
-  let task = pop(taskQueue);
-
-  onStartSubject.next();
-  while (task) {
-    const callback = task.callback;
-    if (callback) { callback(); }
-    task = pop(taskQueue);
-  }
-  onDoneSubject.next();
-
-  if (taskQueue.length > 0) {
-    flushScheduler();
-  } else {
-    onStableSubject.next();
+  if(taskQueue.length) {
+    await firstValueFrom(nzGlobals[NZ_ON_STABLE].pipe(observeOn(asyncScheduler)))
   }
 
 }

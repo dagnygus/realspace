@@ -5,9 +5,9 @@ import { RelatedMoviesRef } from "./state";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { clearRelatedMovieListState, getRelatedMoviesById, getRelatedMoviesByIdStart, relatedMovieListStateError, updateRelatedMovieListState } from "./actions";
 import { catchError, filter, map, of, switchMap, takeUntil, tap } from "rxjs";
-import { isRelatedMovieListState } from "../../utils/type-checkers";
-import { MovieListState, MovieListStateItem, RelatedMovieListState } from "../../models/models";
-import { movieListInitialState } from "../movie-list-initial-state";
+import { isRelatedMovieListState } from "../../utils/utils";
+import { MovieListState, MovieListStateItem, RelatedMovieListState } from "../../models/abstract-models";
+import { movieListInitialState } from "../../models/object-model";
 import { Platform } from "@angular/cdk/platform";
 import { ServerDataCache } from "../../common/services/server-data-cache.service";
 

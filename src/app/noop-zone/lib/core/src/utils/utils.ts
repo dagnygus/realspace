@@ -1,5 +1,6 @@
-import { EffectRef, Injector, Signal, effect, untracked } from "@angular/core";
-import { Observable, Observer, ReplaySubject, Subscribable } from "rxjs";
+import { EffectRef, Injector, Signal, effect } from "@angular/core";
+import { ReactiveNode, SIGNAL, setActiveConsumer } from "@angular/core/primitives/signals";
+import { Observable, Observer, Subscribable } from "rxjs";
 
 export function isSubscribable<T = any>(target: any): target is Subscribable<T> {
   return target != null && typeof target === 'object' && typeof (target as Subscribable<any>).subscribe === 'function';
@@ -69,8 +70,10 @@ export function fromPromiseLike<T>(target: PromiseLike<T>): Observable<T> {
 
 export function fromSignal<T>(target: Signal<T>, injector: Injector): Observable<T> {
   const observers: Observer<T>[] = [];
+  const node = target[SIGNAL] as ReactiveNode;
   let effectRef: EffectRef | null = null;
   let error: any
+  let latestValue: any = target();
 
   return new Observable((observer) => {
     if (error) {
@@ -79,34 +82,72 @@ export function fromSignal<T>(target: Signal<T>, injector: Injector): Observable
     }
 
     try {
-      observer.next(target());
+      observer.next(latestValue);
     } catch (e) {
       error = e
       observer.error(error);
+      if (effectRef) { effectRef.destroy(); }
+      effectRef = null;
       return;
     }
 
     observers.push(observer);
 
     if (effectRef === null) {
-      effectRef = untracked(() => effect(() => {
-        try {
-          for (let i = 0; i < observers.length; i++) {
-            observers[i].next(target());
+      let init = false
+      const initialVersion = node.version;
+
+      const prev = setActiveConsumer(null);
+      try {
+
+        effectRef = effect(() => {
+          const currentValue = target();
+          if (init) {
+            try {
+              for (let i = 0; i < observers.length; i++) {
+                observers[i].next(currentValue);
+              }
+            } catch (e) {
+              for (let i = 0; i < observers.length; i++) {
+                observers[i].error(e);
+              }
+              error = e;
+              if (effectRef) { effectRef.destroy(); }
+              effectRef = null;
+            }
+          } else {
+            init = true;
+            if (initialVersion !== node.version) {
+              try {
+                for (let i = 0; i < observers.length; i++) {
+                  observers[i].next(currentValue);
+                }
+              } catch (e) {
+                for (let i = 0; i < observers.length; i++) {
+                  observers[i].error(e);
+                  error = e;
+                  if (effectRef) {
+                    effectRef.destroy();
+                    effectRef = null;
+                  }
+                }
+              }
+            }
           }
-        } catch (e) {
-          for (let i = 0; i < observers.length; i++) {
-            observers[i].error(e);
-          }
-        }
-      }, { injector, manualCleanup: true }))
+        }, { injector, manualCleanup: true });
+
+      } finally {
+        setActiveConsumer(prev);
+      }
     }
 
     return () => {
       const index = observers.indexOf(observer);
       observers.splice(index, 1);
       if (observers.length === 0) {
-        effectRef!.destroy();
+        if (effectRef) {
+          effectRef.destroy()
+        }
         effectRef = null;
       }
     };

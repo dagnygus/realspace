@@ -1,8 +1,8 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
-import { CreditsFetchResult, MovieCategory, MovieDetailsFetchResult, MovieListFetchResult, VideosFetchResult } from "../../models/models";
+import { CreditsFetchResult, MovieCategory, MovieDetailsFetchResult, MovieListFetchResult, VideosFetchResult } from "../../models/abstract-models";
 import { Observable } from "rxjs";
-import { Genre } from "../../utils/genres";
+import { Genre } from "../../models/object-model";
 
 const _HTTP_OPTIONS = {
   headers: {
@@ -13,13 +13,6 @@ const _HTTP_OPTIONS = {
 
 @Injectable({ providedIn: 'root' })
 export class MoviesHttpService {
-
-  // private _httpOptions = {
-  //   headers: {
-  //     accept: 'application/json',
-  //     Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4ZGU2ZTIyYmRmYTk1NTIxYTM3MWEwMDcyMWZmZDVhNiIsInN1YiI6IjY1OTZlMzEwYTY5OGNmNGZiMTQzOWZiYyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.pc6O0Qkj-YxH3E6ZA1EIgFMLgZgRiORFB5cqVno_wIE'
-  //   }
-  // }
 
   constructor(private _httpClient: HttpClient) {}
 

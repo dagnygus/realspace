@@ -1,54 +1,81 @@
-import { ChangeDetectorRef, ViewRef, inject, ɵNG_COMP_DEF } from "@angular/core";
+import { ChangeDetectorRef, DestroyRef, ViewRef, inject, ɵNG_COMP_DEF } from "@angular/core";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
-import { Priority } from "../scheduler/priority";
+import { Priority, coercePriority } from "../scheduler/priority";
 import { Subscribable, Unsubscribable, take } from "rxjs";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
-import { assertNoopZoneEnviroment, isDisabled, isNoopZoneTestingEnviroment, onBootstrap, onZoneStable } from "../enviroment/enviroment";
+import { assertNoopZoneEnviroment, } from "../enviroment/enviroment";
+import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_LAST_USED_VIEW, NZ_POTENCIAL_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
 
 declare const ngDevMode: any;
+declare const __noop_zone_globals__: NzGlobalsRef;
+const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
 
-const potentialRootComponents: object[] = [];
 const coalescingScopes = new WeakSet<ChangeDetectorRef>();
+let currentScope: ChangeDetectorRef | null = null;
 
-let bootstraped = false;
-let suspendedCdRefs = new Map<object, [ChangeDetectorRef, Priority]>();
+function _isObject(target: unknown): target is object {
+  return target != null && typeof target === 'object';
+}
 
-onBootstrap.subscribe((rootComponents) => {
-  if (isDisabled()) {
+export const NOOP_CB = () => {};
+
+function cleanupAfterWork(): void {
+
+  if (nzGlobals[NZ_WORK_DONE_LISTENERS].length) {
+    for (let i = 0; i < nzGlobals[NZ_WORK_DONE_LISTENERS].length; i++) {
+      nzGlobals[NZ_WORK_DONE_LISTENERS][i]();
+    }
+    nzGlobals[NZ_WORK_DONE_LISTENERS] = [];
+  }
+
+  currentScope = null;
+  if (nzGlobals[NZ_LAST_USED_VIEW]) {
+    coalescingScopes.delete(nzGlobals[NZ_LAST_USED_VIEW]);
+    nzGlobals[NZ_LAST_USED_VIEW] = null;
+  }
+}
+
+export function coalesceCurrentWork(): void {
+  if (currentScope) { return; }
+
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) {
+    if (nzGlobals[NZ_LAST_USED_VIEW] == null) {
+      throw new Error('To cheduler current work you need to call datectChangesSync(cdRef) first!');
+    }
+
+    coalescingScopes.add(nzGlobals[NZ_LAST_USED_VIEW]);
+  }
+}
+
+export function runInCoalescingScope(scope: ChangeDetectorRef, fn: () => void) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
+    fn();
     return;
   }
 
-  let bootstrapCount = 0
-
-  for (let i = 0; i < rootComponents.length; i++) {
-    bootstrapCount = 0;
-    if (potentialRootComponents.includes(rootComponents[i])) {
-      bootstrapCount++
-    }
+  if (coalescingScopes.has(scope)) {
+    fn();
+    return;
   }
 
-  if (bootstrapCount === rootComponents.length) {
-    bootstraped = true;
-    for (let i = 0; i < potentialRootComponents.length; i++) {
-      const [ cdRef, priority ] = suspendedCdRefs.get(potentialRootComponents[i])!
-      detectChanges(cdRef, priority);
-    }
-  } else {
-    throw new Error('One of bootsraped components is not initialize! Please use [initializeComponent(this, priority?)] function in constructor!')
-  }
-});
+  coalescingScopes.add(scope);
+  currentScope = scope
+  fn();
+  currentScope = null;
+  coalescingScopes.delete(scope);
+}
 
 
 export function initializeComponent(component: object, priority: Priority = Priority.normal): ChangeDetectorRef {
 
+
   const cdRef = inject(ChangeDetectorRef);
 
-  if (isDisabled()) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     return cdRef;
   }
 
   cdRef.detach();
-
 
   if ((typeof ngDevMode === 'undefined' || ngDevMode)) {
     if ((component.constructor as any)[ɵNG_COMP_DEF] === 'undefined') {
@@ -56,11 +83,12 @@ export function initializeComponent(component: object, priority: Priority = Prio
     }
   }
 
-  if (bootstraped || isNoopZoneTestingEnviroment()) {
+
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.__ContinueCmpInit) {
     detectChanges(cdRef, priority);
   } else {
-    potentialRootComponents.push(component);
-    suspendedCdRefs.set(component, [cdRef, priority]);
+    nzGlobals[NZ_POTENCIAL_ROOT_CMPS]!.push(component);
+    nzGlobals[NZ_SUSPENDED_VIEWS]!.push([cdRef, priority]);
   }
 
   return cdRef;
@@ -79,12 +107,12 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
 
   assertNoopZoneEnviroment();
 
-  if (isDisabled()) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     cdRef.markForCheck();
 
     if (typeof options === 'object' && options.onDone) {
       const onDone = options.onDone;
-      onZoneStable.pipe(take(1)).subscribe(() => onDone())
+      nzGlobals[NGZONE_ON_STABLE].pipe(take(1)).subscribe(() => onDone())
     }
 
     return;
@@ -96,7 +124,7 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
 
   if (typeof options === 'object') {
     priority = (options && options.priority) || Priority.normal
-    priority = Math.round(Math.max(1, Math.min(priority, 5)));
+    priority = coercePriority(priority);
     abort$ = (options && options.abort$) || null;
     onDone = (options && options.onDone) || null;
   } else {
@@ -106,18 +134,25 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
   if ((cdRef as ViewRef).destroyed || coalescingScopes.has(cdRef)) { return; }
 
   let abortSubscription: Unsubscribable | null = null;
-  let task: ReactSchedulerTask | null
+  let task: ReactSchedulerTask | null = null;
 
   coalescingScopes.add(cdRef);
   task = scheduleCallback(priority, () => {
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig
     task = null;
+    currentScope = cdRef
     if (abortSubscription) {
       abortSubscription.unsubscribe();
-      abortSubscription = null;
     }
-    cdRef.detectChanges();
-    coalescingScopes.delete(cdRef);
-    if (onDone) { onDone() }
+
+    try {
+      cdRef.detectChanges();
+    } finally {
+      coalescingScopes.delete(cdRef);
+      if (onDone) { onDone() }
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig
+      cleanupAfterWork()
+    }
   });
 
   if (abort$) {
@@ -126,9 +161,7 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
         if (task) {
           coalescingScopes.delete(cdRef);
           cancelCallback(task);
-          task = null;
           abortSubscription!.unsubscribe();
-          abortSubscription = null;
         }
       }
     });
@@ -139,7 +172,7 @@ export function detectChangesSync(cdRef: ChangeDetectorRef) {
 
   assertNoopZoneEnviroment();
 
-  if (isDisabled()) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     cdRef.markForCheck();
     return;
   }
@@ -147,41 +180,61 @@ export function detectChangesSync(cdRef: ChangeDetectorRef) {
   if ((cdRef as ViewRef).destroyed || coalescingScopes.has(cdRef)) { return; }
 
   coalescingScopes.add(cdRef);
-  cdRef.detectChanges();
-  coalescingScopes.delete(cdRef);
+
+  try {
+    cdRef.detectChanges();
+  } finally {
+    coalescingScopes.delete(cdRef);
+
+    // if ((nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) && !coalescingScopes.has(cdRef)) {
+    //   nzGlobals[NZ_LAST_USED_VIEW] = cdRef;
+    // }
+
+    if ((nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig)) {
+      nzGlobals[NZ_LAST_USED_VIEW] = cdRef;
+    }
+
+  }
 }
 
 export function scheduleWork(priority: Priority, abort$: Subscribable<void | unknown> | null, work: () => void): void {
 
   assertNoopZoneEnviroment();
 
-  if (isDisabled()) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     work();
     return;
   }
 
-  priority = Math.round(Math.max(1, Math.min(priority, 5)));
+  priority = coercePriority(priority);
 
-  if (abort$) {
-    let abortSubscription: Unsubscribable | null = null;
+    let subscription: Unsubscribable | null = null;
 
-    const task = scheduleCallback(priority, () => {
+     const task = scheduleCallback(priority, () => {
+      if (subscription) { subscription.unsubscribe(); }
+
+      nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig;
       work();
-      if (abortSubscription) {
-        abortSubscription.unsubscribe();
-        abortSubscription = null;
-      }
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig;
+      cleanupAfterWork();
     });
 
-    abortSubscription = abort$.subscribe({
-      next: () => {
-        cancelCallback(task);
-        abortSubscription!.unsubscribe();
-        abortSubscription = null;
-      }
-    });
+    if (abort$) {
+      subscription = abort$.subscribe({
+        next: () => {
+          cancelCallback(task);
+          subscription!.unsubscribe()
+        }
+      })
 
-  } else {
-    scheduleCallback(priority, work);
   }
+}
+
+export function internalScheduleWork(priority: Priority, work: () => void): ReactSchedulerTask {
+  return scheduleCallback(priority, () => {
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig;
+    work();
+    nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig;
+    cleanupAfterWork();
+  })
 }

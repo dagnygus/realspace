@@ -1,4 +1,4 @@
-import { StateStatus } from './../../models/models';
+import { StateStatus } from '../../models/abstract-models';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MoviePageViewModel } from './movie-page.vm';
 import { InPipeModule, NzForModule, NzIfModule, NzLetModule, NzSwitchModule, initializeComponent } from '../../noop-zone';

@@ -5,7 +5,7 @@ import { VideosRef, initialVideosState } from "./state";
 import { clearVideosState, getVideosForMovieById, getVideosForMovieByIdStart, updateVideosState, videosStateError } from "./actions";
 import { catchError, filter, map, of, switchMap, takeUntil, tap } from "rxjs";
 import { NzScheduler, Priority } from "../../noop-zone";
-import { VideosState } from "../../models/models";
+import { VideosState } from "../../models/abstract-models";
 import { Platform } from "@angular/cdk/platform";
 import { ServerDataCache } from "../../common/services/server-data-cache.service";
 

@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Directive, DoCheck, EventEmitter, Host, Inject, Injector, Input, OnDestroy, OnInit, Optional, Output, Signal, TemplateRef, ViewContainerRef, ViewRef, isSignal } from "@angular/core";
 import { Observable, ReplaySubject, Subject, Subscribable, Subscription, of, switchAll } from "rxjs";
 import { NzScheduler, Priority, assertNoopZoneEnviroment, detectChanges, detectChangesSync, fromPromiseLike, fromSignal, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
-import { NZ_QUERY_VIEW, NZ_SWITCH_CONFIG, NzSwitchConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
+import {  NZ_SWITCH_CONFIG, NzSwitchConfiguration } from "../injection-tokens/injection-tokens";
 import { DefaultNzContext } from "../utils/utils";
 
 interface CaseView<T> {
@@ -9,11 +9,11 @@ interface CaseView<T> {
 }
 
 @Directive({ selector: '[nzSwitch]', standalone: true })
-export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
+export class NzSwitchDirective<T> implements OnInit, DoCheck, OnDestroy {
 
   private _subscription = new Subscription();
   private _nzSwitch$$ = new ReplaySubject<Observable<T>>(1);
-  private _nzSwithc$ = new ReplaySubject<T>(1);
+  private _nzSwitch$ = new ReplaySubject<T>(1);
   private _priority$$ = new ReplaySubject<Observable<Priority>>(1);
   private _priority: Priority;
   private _optimized$$ = new ReplaySubject<Observable<boolean>>(1);
@@ -23,14 +23,12 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
   private _match = false;
   private _viewCount = 0;
   private _initCount = 0;
-  private _queryView: QueryView | null = null;
   private _abort$ = new Subject<void>();
   private _sealed = false;
-  private _queryViewCheckRequested = false;
   private _shouldRiseEvent = false;
 
   readonly onMatch = this._onMatch.asObservable();
-  readonly onSwitch = this._nzSwithc$.asObservable();
+  readonly onSwitch = this._nzSwitch$.asObservable();
 
   @Input()
   set nzSwitch(nzSwitch: Signal<T> | Observable<T> | Subscribable<T> | Promise<T> | PromiseLike<T> | T) {
@@ -74,29 +72,41 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
   @Output() render = new EventEmitter<T>();
 
   constructor(@Optional() @Inject(NZ_SWITCH_CONFIG) config: NzSwitchConfiguration | null,
-              @Optional() @Host() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              private _nzScheduler: NzScheduler,
               private _injector: Injector) {
     assertNoopZoneEnviroment();
     const defaultPriority = config?.defaultPriority ?? Priority.normal;
     const optimized = config?.optimized ?? false;
-    const notifyQueryView = config?.notifyQueryView ?? true;
 
     this._priority = defaultPriority;
     this._priority$$.next(of(defaultPriority));
-    this._optimized = this._nzScheduler.enabled ? optimized : false;
+    this._optimized = NzScheduler.enabled ? optimized : false;
     this._optimized$$.next(of(this._optimized));
-    if (notifyQueryView && this._nzScheduler.enabled) {
-      this._queryView = queryView;
-    }
 
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
       this._subscription.add(this._priority$$.pipe(
         switchAll()
       ).subscribe((priority) =>  this._priority = priority));
       this._subscription.add(this._optimized$$.pipe(
         switchAll()
       ).subscribe((optimized) => this._optimized = optimized));
+    }
+  }
+
+  ngOnInit(): void {
+    if (!this._viewCount) {
+      this._subscription.add(this._nzSwitch$$.pipe(switchAll()).subscribe((nzSwitch) => {
+        if (this._noonobservable$ && this._optimized) { return; }
+        this._shouldRiseEvent = false;
+        this._match = false;
+        this._abort$.next();
+        this._nzSwitch$.next(nzSwitch);
+        this._onMatch.next(this._match);
+        if (this._shouldRiseEvent) {
+          this._riseRenderEvent(nzSwitch);
+        }
+      }));
+
+      this._sealed = true;
     }
   }
 
@@ -110,9 +120,6 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
     this._subscription.unsubscribe();
     this._abort$.next();
     this._abort$.complete();
-    if (this._queryView) {
-      this._queryView.dismiss(this);
-    }
   }
 
   getPriority(): Priority {
@@ -132,7 +139,7 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
   }
 
   private _riseRenderEvent(nzSwitch: T): void {
-    if (this._nzScheduler.enabled && this.render.observed) {
+    if (NzScheduler.enabled && this.render.observed) {
       scheduleWork(this._priority, this._abort$, () => {
         this.render.emit(nzSwitch);
       });
@@ -159,16 +166,10 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
 
       this._subscription.add(this._nzSwitch$$.pipe(switchAll()).subscribe((nzSwitch) => {
         if (this._noonobservable$ && this._optimized) { return; }
-
-        if (this._queryView && this._queryView.isChecking() && this._queryViewCheckRequested) {
-          this._queryViewCheckRequested = false;
-          return;
-        }
-
         this._shouldRiseEvent = false;
         this._match = false;
         this._abort$.next();
-        this._nzSwithc$.next(nzSwitch);
+        this._nzSwitch$.next(nzSwitch);
         this._onMatch.next(this._match);
         if (this._shouldRiseEvent) {
           this._riseRenderEvent(nzSwitch);
@@ -176,13 +177,6 @@ export class NzSwitchDirective<T> implements DoCheck, OnDestroy {
       }));
 
       this._sealed = true;
-    }
-  }
-
-  _notyfyQueryView(): void {
-    if (this._queryView) {
-        this._queryView.notify(this);
-        this._queryViewCheckRequested = true;
     }
   }
 
@@ -196,26 +190,30 @@ export class NzSwitchCaseDirective<T extends object | number | boolean | string>
 
   private _subscription = new Subscription();
   private _viewRef: ViewRef | null = null;
+  private _init = false;
+  private _nzSwitchCase!: T
 
-  @Input() nzSwitchCase!: T
+  @Input() set nzSwitchCase(value: T) {
+    if (this._init) { return; }
+    this._nzSwitchCase = value;
+  }
 
   constructor(private _templateRef: TemplateRef<DefaultNzContext>,
               private _viewContainerRef: ViewContainerRef,
-              private _nzSwitchDir: NzSwitchDirective<T>,
-              private _changeDetectorRef: ChangeDetectorRef,
-              private _nzScheduler: NzScheduler) {
+              @Host() private _nzSwitchDir: NzSwitchDirective<T>,
+              private _changeDetectorRef: ChangeDetectorRef) {
     assertNoopZoneEnviroment();
     _nzSwitchDir._increaseViewCount();
   }
 
   enforceState(nzSwitch: T): boolean {
-    const match = nzSwitch === this.nzSwitchCase;
+    const match = nzSwitch === this._nzSwitchCase;
     if (match && !this._viewRef) {
       this._createView();
     } if (!match && this._viewRef) {
       this._destroyView();
     } else if (this._viewRef && !this._nzSwitchDir.getOptimized()) {
-      if (this._nzScheduler.enabled) {
+      if (NzScheduler.enabled) {
         detectChanges(this._viewRef, {
           abort$: this._nzSwitchDir.getAbort(),
           priority: this._nzSwitchDir.getPriority()
@@ -228,6 +226,7 @@ export class NzSwitchCaseDirective<T extends object | number | boolean | string>
   }
 
   ngOnInit(): void {
+    this._init = true;
     if (this._nzSwitchDir.isSealed()) { return; }
 
     this._subscription.add(this._nzSwitchDir.onSwitch.subscribe((nzSwitch) => {
@@ -241,13 +240,12 @@ export class NzSwitchCaseDirective<T extends object | number | boolean | string>
   }
 
   private _createView(): void {
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
       scheduleWork(this._nzSwitchDir.getPriority(), this._nzSwitchDir.getAbort(), () => {
         const context = new DefaultNzContext();
         this._viewRef = this._viewContainerRef.createEmbeddedView(this._templateRef, context);
         context.$implicit = context.cdRef = this._viewRef;
         detectChangesSync(this._viewRef);
-        this._nzSwitchDir._notyfyQueryView();
       });
     } else {
       const context = new DefaultNzContext();
@@ -260,12 +258,11 @@ export class NzSwitchCaseDirective<T extends object | number | boolean | string>
   }
 
   private _destroyView(): void {
-    if (this._nzScheduler.enabled) {
+    if (NzScheduler.enabled) {
       scheduleWork(this._nzSwitchDir.getPriority(), this._nzSwitchDir.getAbort(), () => {
         this._viewContainerRef.clear();
         this._viewRef!.detectChanges();
         this._viewRef = null;
-        this._nzSwitchDir._notyfyQueryView();
       });
     } else {
       this._viewContainerRef.clear();
@@ -290,9 +287,8 @@ export class NzSwitchDefaultDirective implements OnInit, OnDestroy {
 
   constructor(private _viewContainerRef: ViewContainerRef,
               private _templateRef: TemplateRef<DefaultNzContext>,
-              private _nzSwitchDir: NzSwitchDirective<any>,
-              private _changeDetectorRef: ChangeDetectorRef,
-              private _nzSchduler: NzScheduler) {
+              @Host() private _nzSwitchDir: NzSwitchDirective<any>,
+              private _changeDetectorRef: ChangeDetectorRef) {
     assertNoopZoneEnviroment();
     _nzSwitchDir._increaseViewCount();
   }
@@ -300,14 +296,13 @@ export class NzSwitchDefaultDirective implements OnInit, OnDestroy {
   ngOnInit(): void {
     if (this._nzSwitchDir.isSealed()) { return; }
 
-    if (this._nzSchduler.enabled) {
+    if (NzScheduler.enabled) {
       this._subscription.add(this._nzSwitchDir.onMatch.subscribe((match) => {
         if (match && this._viewRef) {
           scheduleWork(this._nzSwitchDir.getPriority(), this._nzSwitchDir.getAbort(), () => {
             this._viewContainerRef.clear();
             this._viewRef!.detectChanges();
             this._viewRef = null;
-            this._nzSwitchDir._notyfyQueryView();
           });
           this._nzSwitchDir._viewChange();
         } else if (!match && !this._viewRef) {
@@ -316,7 +311,6 @@ export class NzSwitchDefaultDirective implements OnInit, OnDestroy {
             this._viewRef = this._viewContainerRef.createEmbeddedView(this._templateRef);
             context.$implicit = context.cdRef = this._viewRef;
             detectChangesSync(this._viewRef);
-            this._nzSwitchDir._notyfyQueryView();
           });
           this._nzSwitchDir._viewChange();
         } else if (this._viewRef && !this._nzSwitchDir.getOptimized()) {

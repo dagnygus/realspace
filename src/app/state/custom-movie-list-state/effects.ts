@@ -4,10 +4,10 @@ import { CustomMovieListRef } from "./state";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { clearCustomMovieListState, customMovieListStateError, extendCustomMovieListByCategoty, extendCustomMovieListByGenre, replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, replaceOrExtendCustomMovieListByCategory, replaceOrExtendCustomMovieListByGenre, searchMoviesWithKey, searchMoviesWithKyeStart, updateCustomMovieListState } from "./actions";
 import { exhaustMap, map, catchError, of, takeUntil, switchMap, tap, filter, take } from "rxjs";
-import { isCategoryMovieListState, isGenreMovieListState, isSearchKeyMovieListState } from "../../utils/type-checkers";
-import { CategoryMovieListState, GenreMovieListState, MovieListState, MovieListStateItem, SearchKeyMovieListState } from "../../models/models";
+import { isCategoryMovieListState, isGenreMovieListState, isSearchKeyMovieListState } from "../../utils/utils";
+import { CategoryMovieListState, GenreMovieListState, MovieListState, MovieListStateItem, SearchKeyMovieListState } from "../../models/abstract-models";
 import { Injectable } from "@angular/core";
-import { movieListInitialState } from "../movie-list-initial-state";
+import { movieListInitialState } from "../../models/object-model";
 import { Platform } from "@angular/cdk/platform";
 import { ServerDataCache } from "../../common/services/server-data-cache.service";
 

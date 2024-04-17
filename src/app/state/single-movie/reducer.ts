@@ -1,7 +1,7 @@
 import { Action, createReducer, on } from "@ngrx/store";
 import { initialSingleMovieState } from "./state";
 import { updateSingleMovieState } from "./actions";
-import { MovieState } from "../../models/models";
+import { MovieState } from "../../models/abstract-models";
 
 const _reducer = createReducer(
   initialSingleMovieState,

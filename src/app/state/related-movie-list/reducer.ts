@@ -1,7 +1,7 @@
 import { Action, createReducer, on } from "@ngrx/store";
-import { movieListInitialState } from "../movie-list-initial-state";
+import { movieListInitialState } from "../../models/object-model";
 import { updateRelatedMovieListState } from "./actions";
-import { MovieListState } from "../../models/models";
+import { MovieListState } from "../../models/abstract-models";
 
 const _reducer = createReducer(
   movieListInitialState,

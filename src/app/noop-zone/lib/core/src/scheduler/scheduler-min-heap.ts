@@ -9,11 +9,10 @@ export interface SchedulerTaskZone {
 export interface ReactSchedulerTask {
   id: number;
   sortIndex: number;
-  callback: Function | null;
+  callback: (() => void) | null;
   priorityLevel: Priority;
   startTime: number;
   expirationTime: number;
-  isQueued?: boolean;
 }
 
 export function push(heap: Heap, node: ReactSchedulerTask): void {

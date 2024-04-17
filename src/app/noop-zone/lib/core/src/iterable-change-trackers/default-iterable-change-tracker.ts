@@ -29,7 +29,8 @@ export class DefaultIterableChangeTracker<V> implements IterableChangeTracker<V>
     this._trackByFn = trackByFn || trackByIdentity;
   }
 
-  applyChanges(observer: IterableChangeObserver<V>, skipUnchanged?: boolean): void {
+  applyChanges(observer: IterableChangeObserver<V>): void {
+    if (this._isClean()) { return; }
     let nextIt = this._itHead;
     let nextRemove = this._removalsHead;
     let addRemoveOffset = 0;
@@ -75,16 +76,16 @@ export class DefaultIterableChangeTracker<V> implements IterableChangeTracker<V>
 
       if (adjPreviousIndex !== currentIndex) {
         if (record.previousIndex == null) {
-          observer.onAdd(record, currentIndex === null ? undefined : currentIndex)
+          observer.onAdd(record, currentIndex === null ? undefined : currentIndex);
         } else if (currentIndex == null) {
-          observer.onRemove(record, adjPreviousIndex)
+          observer.onRemove(record, adjPreviousIndex);
         } else if (adjPreviousIndex !== null) {
           observer.onMove(record, adjPreviousIndex, currentIndex, record === this._identityChangesHead || record._prevIdentityChange !== null);
         }
       } else if (record === this._identityChangesHead || record._prevIdentityChange) {
-        observer.onUpdate(record, currentIndex)
+        observer.onUpdate(record, currentIndex);
       } else {
-        observer.onIterate(record, currentIndex)
+        observer.onIterate(record, currentIndex);
       }
     }
     observer.onDone();
@@ -99,7 +100,7 @@ export class DefaultIterableChangeTracker<V> implements IterableChangeTracker<V>
     }
 
 
-    this._reset();
+    this.reset();
 
     let record: IterableChangeRecord_<V>|null = this._itHead;
     let mayBeDirty: boolean = false;
@@ -152,15 +153,28 @@ export class DefaultIterableChangeTracker<V> implements IterableChangeTracker<V>
 
     this._truncate(record);
     (this as {collection: V[] | Iterable<V>}).collection = collection;
-    return this.isDirty;
+    return this._isDirty();
   }
 
   /* CollectionChanges is considered dirty if it has any additions, moves, removals, or identity
    * changes.
    */
-  private get isDirty(): boolean {
-    return this._additionsHead !== null || this._movesHead !== null ||
-        this._removalsHead !== null || this._identityChangesHead !== null;
+  // private get isDirty(): boolean {
+  //   return this._additionsHead !== null || this._movesHead !== null ||
+  //       this._removalsHead !== null || this._identityChangesHead !== null;
+  // }
+
+  private _isClean(): boolean {
+    return this._removalsHead === null && this._additionsHead === null &&
+        this._movesHead === null && this._identityChangesHead === null;
+  }
+
+  /* CollectionChanges is considered dirty if it has any additions, moves, removals, or identity
+   * changes.
+   */
+  private _isDirty(): boolean {
+    return !(this._removalsHead === null && this._additionsHead === null &&
+        this._movesHead === null && this._identityChangesHead === null);
   }
 
   /**
@@ -169,38 +183,31 @@ export class DefaultIterableChangeTracker<V> implements IterableChangeTracker<V>
    * Set the previousIndexes of moved and added items to their currentIndexes
    * Reset the list of additions, moves and removals
    *
-   * @internal
    */
-  private _reset() {
-    if (this.isDirty) {
-      let record: IterableChangeRecord_<V>|null;
+  reset() {
+    if (this._isClean()) { return; }
+    let record: IterableChangeRecord_<V>|null;
 
-      // for (record = this._previousItHead = this._itHead; record !== null; record = record._next) {
-      //   record._nextPrevious = record._next;
-      // }
-
-      for (record = this._additionsHead; record !== null; record = record._nextAdded) {
-        record.previousIndex = record.currentIndex;
-      }
-      this._additionsHead = this._additionsTail = null;
-
-      for (record = this._movesHead; record !== null; record = record._nextMoved) {
-        record.previousIndex = record.currentIndex;
-      }
-      this._movesHead = this._movesTail = null;
-      this._removalsHead = this._removalsTail = null;
-      this._identityChangesHead = this._identityChangesTail = null;
-
+    for (record = this._additionsHead; record !== null; record = record._nextAdded) {
+      record.previousIndex = record.currentIndex;
     }
-  }
-
-  private _clear(): void {
-    this._itHead = this._itTail = null;
-    this._removalsHead = this._removalsTail = null;
-    this._movesHead = this._movesTail = null;
     this._additionsHead = this._additionsTail = null;
+
+    for (record = this._movesHead; record !== null; record = record._nextMoved) {
+      record.previousIndex = record.currentIndex;
+    }
+    this._movesHead = this._movesTail = null;
+    this._removalsHead = this._removalsTail = null;
     this._identityChangesHead = this._identityChangesTail = null;
   }
+
+  // private _clear(): void {
+  //   this._itHead = this._itTail = null;
+  //   this._removalsHead = this._removalsTail = null;
+  //   this._movesHead = this._movesTail = null;
+  //   this._additionsHead = this._additionsTail = null;
+  //   this._identityChangesHead = this._identityChangesTail = null;
+  // }
 
   /**
    * This is the core function which handles differences between collections.

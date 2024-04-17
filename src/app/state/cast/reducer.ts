@@ -1,7 +1,7 @@
 import { Action, createReducer, on } from "@ngrx/store";
 import { initialCastState } from "./state";
 import { updateCastState } from "./actions";
-import { CastState } from "../../models/models";
+import { CastState } from "../../models/abstract-models";
 
 const _reducer = createReducer(
   initialCastState,

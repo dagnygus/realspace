@@ -1,4 +1,4 @@
-import { CastState } from './../../models/models';
+import { CastState } from '../../models/abstract-models';
 import { Injectable } from "@angular/core";
 import { Actions, createEffect, ofType } from "@ngrx/effects";
 import { MoviesHttpService } from "../../common/services/movies-http.service";

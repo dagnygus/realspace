@@ -1,7 +1,7 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, Input, OnDestroy, Pipe, PipeTransform, Renderer2, ViewChild, inject } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, HostListener, Input, OnDestroy, Pipe, PipeTransform, Renderer2, Signal, ViewChild, inject } from '@angular/core';
 import { InPipeModule, NzForModule, initializeComponent } from '../../../noop-zone';
 import { Observable, Subject, debounceTime, filter, fromEvent, merge, switchMap, take, takeUntil } from 'rxjs';
-import { MovieListStateItem, StateStatus } from '../../../models/models';
+import { MovieListStateItem, StateStatus } from '../../../models/abstract-models';
 import { MatIconModule } from '@angular/material/icon';
 import { YearFromDatePipe } from '../../pipes/year-from-date.pipe';
 import { MovieCardImgSrcPipe } from '../../pipes/movie-card-img-src.pipe';
@@ -44,8 +44,8 @@ export class MovieSliderComponent implements AfterViewInit {
   destroyRef = inject(DestroyRef);
   platform = inject(Platform);
 
-  @Input({ required: true }) movieListSource: Observable<readonly MovieListStateItem[]> = null!
-  @Input({ required: true }) movieListStatusSource: Observable<StateStatus> = null!
+  @Input({ required: true }) movieListSource: Signal<readonly MovieListStateItem[]> = null!
+  @Input({ required: true }) movieListStatusSource: Signal<StateStatus> = null!
 
   @ViewChild('container', { static: true }) containerElRef: ElementRef<HTMLElement> | null = null;
 

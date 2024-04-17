@@ -1,5 +1,4 @@
-// import { ɵglobal } from '@angular/core';
-// import { enableIsInputPending } from './schedulerFeatureFlags';
+
 import {
   peek,
   pop,
@@ -9,31 +8,29 @@ import {
 
 import { Priority } from './priority';
 import { Type } from '@angular/core';
+import { NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_ON_DONE, NZ_ON_STABLE, NZ_ON_START, NZ_ON_UNSTABLE, NzFlags, NzGlobals, NzGlobalsRef } from '../globals/globals';
+
+interface Zone {
+  run<T>(callback: Function, applyThis?: any, applyArgs?: any[], source?: string): T;
+}
+
+interface ZoneType {
+  current: Zone;
+  root: Zone;
+}
 
 /**
  * @description Will be provided through Terser global definitions by Angular CLI
  * during the production build.
  */
 declare const ngDevMode: boolean;
-declare const process: any
-declare const global: any
+declare const __noop_zone_globals__: NzGlobalsRef;
+declare const Zone: ZoneType | undefined;
+declare const setImmediate: (cb: () => any) => number;
+declare const clearImmediate: (arg: any) => void
 
-const isNodeJS = typeof process === 'object' && typeof process.versions === 'object' && typeof process.versions.node != null;
-
-function getGlobalThis(): any  {
-
-  if (typeof process === 'object' && typeof process.versions === 'object' && typeof process.versions.node != null) {
-    return global || globalThis;
-  }
-
-  if (typeof window === 'object' && typeof document === 'object') {
-    return window;
-  }
-
-  throw new Error('Unknown JS runtime!');
-}
-
-const runtimeThis = getGlobalThis();
+const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
+const noopFn: Function = () => {};
 
 let getCurrentTime: () => number;
 const hasPerformanceNow =
@@ -66,12 +63,8 @@ const IDLE_PRIORITY_TIMEOUT = maxSigned31BitInt;
 // Tasks are stored on a min heap
 const taskQueue: ReactSchedulerTask[] = [];
 // const timerQueue: ReactSchedulerTask[] = [];
-
 // Incrementing id counter. Used to maintain insertion order.
 let taskIdCounter = 1;
-
-// Pausing the scheduler is useful for debugging.
-let isSchedulerPaused = false;
 
 let currentTask: ReactSchedulerTask | null = null;
 let currentPriorityLevel = Priority.normal;
@@ -81,57 +74,30 @@ let isPerformingWork = false;
 
 let isHostCallbackScheduled = false;
 let isHostTimeoutScheduled = false;
+let started = false;
 
-// Capture local references to native APIs, in case a polyfill overrides them.
 
-// Potential Hooks;
-let onStartCallback: () => void = null!;
-let onDoneCallback: () => void = null!;
-let onStableCallback: () => void = null!;
+let onStart = noopFn;
+let onDone = noopFn;
+let onUnstable = noopFn;
+let onStable = noopFn;
+let scheduleMicrotask = noopFn;
+let pendingTaskCallbacksCount = 0;
+// let started = false;
 
-const setTimeout = runtimeThis.setTimeout as (cb: () => any, milis: number) => number;
-const clearTimeout = runtimeThis.clearTimeout as (id: number) => undefined | void;
-const setImmediate = runtimeThis.setImmediate as (cb: () => any) => number;
-const LocalMessageChannel = runtimeThis.MessageChannel as Type<MessageChannel>;
-
-const queueMicrotask: (cb: () => void) => void =
-  typeof runtimeThis.queueMicrotask === 'function' ?
-  runtimeThis.queueMicrotask.bind(runtimeThis) :
-  (cb: () => void) => Promise.resolve().then(cb)
-
-const riseDoneCallback = () => {
-  onDoneCallback();
-  if (taskQueue.length === 0) {
-    onStableCallback();
+function riseOnDoneIfQueueEmpty() {
+  if (pendingTaskCallbacksCount) { return; }
+  onDone();
+  if (taskQueue.length) { return; }
+  onStable();
+  if (pendingTaskCallbacksCount) {
+    throw new Error('Scheduling tasks in OnStabke() hook is forbidden!');
   }
 }
 
-const isInputPending =
-  isNodeJS ? null :
-  runtimeThis.navigator !== 'undefined' &&
-  runtimeThis.navigator.scheduling !== undefined &&
-  runtimeThis.navigator.scheduling.isInputPending !== undefined ?
-  runtimeThis.navigator.scheduling.isInputPending.bind(runtimeThis.navigator.scheduling) : null;
-
-
-function isWorkLoopRunning(): boolean {
-  return isPerformingWork;
-}
 
 function getTaskQueue(): ReactSchedulerTask[] {
   return taskQueue;
-}
-
-function setOnStartCallback(callback: () => void) {
-  onStartCallback = callback;
-}
-
-function setOnDoneCallback(callback: () => void) {
-  onDoneCallback = callback;
-}
-
-function setOnStableCallback(callback: () => void) {
-  onStableCallback = callback;
 }
 
 function flushWork(hasTimeRemaining: boolean, initialTime: number) {
@@ -146,18 +112,15 @@ function flushWork(hasTimeRemaining: boolean, initialTime: number) {
   isPerformingWork = true;
   const previousPriorityLevel = currentPriorityLevel;
   try {
-    if (taskQueue.length > 0) {
-      onStartCallback();
+    if (taskQueue.length > 0 && typeof peek(taskQueue)!.callback === 'function') {
+      started = true;
+      onStart();
     }
     return workLoop(hasTimeRemaining, initialTime);
   } finally {
     currentTask = null;
     currentPriorityLevel = previousPriorityLevel;
-    // onDoneCallback();
     isPerformingWork = false;
-    // if (taskQueue.length === 0) {
-    //   onStableCallback();
-    // }
   }
 }
 
@@ -187,17 +150,19 @@ function workLoop(
         if (typeof callback === 'function') {
           currentTask.callback = null;
           currentPriorityLevel = currentTask.priorityLevel;
-          const didUserCallbackTimeout =
-            currentTask.expirationTime <= currentTime;
-          const continuationCallback = callback(didUserCallbackTimeout);
+          // const didUserCallbackTimeout =
+          //   currentTask.expirationTime <= currentTime;
+          // const continuationCallback = callback(didUserCallbackTimeout);
+          pendingTaskCallbacksCount--
+          callback();
           currentTime = getCurrentTime();
-          if (typeof continuationCallback === 'function') {
-            currentTask.callback = continuationCallback;
-          } else {
-            if (currentTask === peek(taskQueue)) {
-              pop(taskQueue);
-            }
+          // if (typeof continuationCallback === 'function') {
+          //   currentTask.callback = continuationCallback;
+          // } else {
+          if (currentTask === peek(taskQueue)) {
+            pop(taskQueue);
           }
+          // }
         } else {
           pop(taskQueue);
         }
@@ -229,69 +194,6 @@ function workLoop(
     // }
     return false;
   }
-}
-
-function runWithPriority(priorityLevel: Priority, eventHandler: () => any) {
-  switch (priorityLevel) {
-    case Priority.immediate:
-    case Priority.userBlocking:
-    case Priority.normal:
-    case Priority.low:
-    case Priority.idle:
-      break;
-    default:
-      priorityLevel = Priority.normal;
-  }
-
-  const previousPriorityLevel = currentPriorityLevel;
-  currentPriorityLevel = priorityLevel;
-
-  try {
-    return eventHandler();
-  } finally {
-    currentPriorityLevel = previousPriorityLevel;
-  }
-}
-
-function next(eventHandler: () => any) {
-  let priorityLevel;
-  switch (currentPriorityLevel) {
-    case Priority.immediate:
-    case Priority.userBlocking:
-    case Priority.normal:
-      // Shift down to normal priority
-      priorityLevel = Priority.normal;
-      break;
-    default:
-      // Anything lower than normal priority should remain at the current level.
-      priorityLevel = currentPriorityLevel;
-      break;
-  }
-
-  const previousPriorityLevel = currentPriorityLevel;
-  currentPriorityLevel = priorityLevel;
-
-  try {
-    return eventHandler();
-  } finally {
-    currentPriorityLevel = previousPriorityLevel;
-  }
-}
-
-function wrapCallback(this: any, callback: VoidFunction) {
-  const parentPriorityLevel = currentPriorityLevel;
-  return () => {
-    // This is a fork of runWithPriority, inlined for performance.
-    const previousPriorityLevel = currentPriorityLevel;
-    currentPriorityLevel = parentPriorityLevel;
-
-    try {
-      // eslint-disable-next-line prefer-rest-params
-      return callback.apply(this as any, arguments as any);
-    } finally {
-      currentPriorityLevel = previousPriorityLevel;
-    }
-  };
 }
 
 function scheduleCallback(
@@ -334,35 +236,26 @@ function scheduleCallback(
   };
 
 
-    newTask.sortIndex = expirationTime;
-    push(taskQueue, newTask);
-    // Schedule a host callback, if needed. If we're already performing work,
-    // wait until the next time we yield.
-    if (!isHostCallbackScheduled && !isPerformingWork) {
-      isHostCallbackScheduled = true;
-      requestHostCallback(flushWork);
-    }
-
-
-  return newTask;
-}
-
-
-
-function pauseExecution() {
-  isSchedulerPaused = true;
-}
-
-function continueExecution() {
-  isSchedulerPaused = false;
+  newTask.sortIndex = expirationTime;
+  pendingTaskCallbacksCount++
+  push(taskQueue, newTask);
+  // Schedule a host callback, if needed. If we're already performing work,
+  // wait until the next time we yield.
   if (!isHostCallbackScheduled && !isPerformingWork) {
     isHostCallbackScheduled = true;
     requestHostCallback(flushWork);
   }
-}
 
-function getFirstCallbackNode() {
-  return peek(taskQueue);
+  if (pendingTaskCallbacksCount === 1) {
+    scheduleMicrotask(() => {
+      if (pendingTaskCallbacksCount) {
+        onUnstable();
+      }
+    })
+  }
+
+
+  return newTask;
 }
 
 function cancelCallback(task: ReactSchedulerTask) {
@@ -385,12 +278,12 @@ function cancelCallback(task: ReactSchedulerTask) {
   }
 
 
-  task.callback = null;
+  if (task.callback != null) {
+    pendingTaskCallbacksCount--
+    task.callback = null;
+  }
 }
 
-function getCurrentPriorityLevel() {
-  return currentPriorityLevel;
-}
 
 let isMessageLoopRunning = false;
 let scheduledHostCallback: Function | null = null;
@@ -404,7 +297,6 @@ let yieldInterval = 16;
 
 // TODO: Make this configurable
 // TODO: Adjust this based on priority?
-const maxYieldInterval = 300;
 let needsPaint = false;
 let queueStartTime = -1;
 
@@ -429,47 +321,7 @@ function shouldYieldToHost() {
   // wasn't accompanied by a call to `requestPaint`, or other main thread tasks
   // like network events.
 
-  // we don't support isInputPending currently
-  /*if (enableIsInputPending) {
-    if (needsPaint) {
-      // There's a pending paint (signaled by `requestPaint`). Yield now.
-      return true;
-    }
-    if (timeElapsed < continuousInputInterval) {
-      // We haven't blocked the thread for that long. Only yield if there's a
-      // pending discrete input (e.g. click). It's OK if there's pending
-      // continuous input (e.g. mouseover).
-      if (isInputPending !== null) {
-        return isInputPending();
-      }
-    } else if (timeElapsed < maxInterval) {
-      // Yield if there's either a pending discrete or continuous input.
-      if (isInputPending !== null) {
-        return isInputPending(continuousOptions);
-      }
-    } else {
-      // We've blocked the thread for a long time. Even if there's no pending
-      // input, there may be some other scheduled work that we don't know about,
-      // like a network event. Yield now.
-      return true;
-    }
-  }*/
-
-  // `isInputPending` isn't available. Yield now.
   return true;
-}
-
-function requestPaint() {
-  needsPaint = true;
-  // we don't support isInputPending currently
-  /*if (
-    enableIsInputPending &&
-    navigator !== undefined &&
-    (navigator as any).scheduling !== undefined &&
-    (navigator as any).scheduling.isInputPending !== undefined
-  ) {
-    needsPaint = true;
-  }*/
 }
 
 function forceFrameRate(fps: number) {
@@ -520,65 +372,20 @@ const performWorkUntilDeadline = () => {
         isMessageLoopRunning = false;
         scheduledHostCallback = null;
 
-
-        // onDoneCallback();
-        // if (taskQueue.length === 0) {
-        //   onStableCallback();
-        // }
-
-        // Promise.resolve().then(() => {
-        //   onDoneCallback();
-        //   if (taskQueue.length === 0) {
-        //     onStableCallback();
-        //   }
-        // });
-
-        queueMicrotask(riseDoneCallback);
+        scheduleMicrotask(riseOnDoneIfQueueEmpty);
       }
     }
   } else {
     isMessageLoopRunning = false;
-    onDoneCallback();
-    if (taskQueue.length === 0) {
-      onStableCallback();
-    }
+    scheduleMicrotask(riseOnDoneIfQueueEmpty);
   }
   // Yielding to the browser will give it a chance to paint, so we can
   // reset this.
   needsPaint = false;
 };
 
-let schedulePerformWorkUntilDeadline: () => void;
-
-if (typeof setImmediate === 'function') {
-  // Node.js and old IE.
-  // There's a few reasons for why we prefer setImmediate.
-  //
-  // Unlike MessageChannel, it doesn't prevent a Node.js process from exiting.
-  // (Even though this is a DOM fork of the Scheduler, you could get here
-  // with a mix of Node.js 15+, which has a MessageChannel, and jsdom.)
-  // https://github.com/facebook/react/issues/20756
-  //
-  // But also, it runs earlier which is the semantic we want.
-  // If other browsers ever implement it, it's better to use it.
-  // Although both of these would be inferior to native scheduling.
-  schedulePerformWorkUntilDeadline = () => {
-    setImmediate(performWorkUntilDeadline);
-  };
-} else if (!isNodeJS && typeof LocalMessageChannel !== 'undefined') {
-  const channel = new LocalMessageChannel();
-  const port = channel.port2;
-
-  channel.port1.onmessage = performWorkUntilDeadline;
-  schedulePerformWorkUntilDeadline = () => {
-    port.postMessage(null);
-  };
-} else {
-  // We should only fallback here in non-browser environments.
-  schedulePerformWorkUntilDeadline = () => {
-    setTimeout(performWorkUntilDeadline, 0);
-  };
-}
+let schedulePerformWorkUntilDeadline = noopFn;
+let disposeScheduledWork = noopFn;
 
 function requestHostCallback(callback: (hasTimeRemaining: boolean, initialTime: number) => void) {
   scheduledHostCallback = callback;
@@ -588,36 +395,202 @@ function requestHostCallback(callback: (hasTimeRemaining: boolean, initialTime: 
   }
 }
 
-// function requestHostTimeout(callback: (currentTime: number) => void, ms: number) {
-//   taskTimeoutID = setTimeout(() => {
-//     callback(getCurrentTime());
-//   }, ms) as any;
-// }
-
-function cancelHostTimeout() {
+function cancelHostTimeout(): void {
   clearTimeout(taskTimeoutID);
   taskTimeoutID = -1;
 }
 
-const _requestPaint = requestPaint;
+function initializeScheduler(): void {
+
+  if (typeof queueMicrotask === 'function') {
+    scheduleMicrotask = queueMicrotask;
+  } else {
+    scheduleMicrotask = (fn: () => void) => {
+      Promise.resolve().then(fn);
+    }
+  }
+
+  if (typeof setImmediate === 'function') {
+    // Node.js and old IE.
+    // There's a few reasons for why we prefer setImmediate.
+    //
+    // Unlike MessageChannel, it doesn't prevent a Node.js process from exiting.
+    // (Even though this is a DOM fork of the Scheduler, you could get here
+    // with a mix of Node.js 15+, which has a MessageChannel, and jsdom.)
+    // https://github.com/facebook/react/issues/20756
+    //
+    // But also, it runs earlier which is the semantic we want.
+    // If other browsers ever implement it, it's better to use it.
+    // Although both of these would be inferior to native scheduling.
+    let timeoutId: number | undefined;
+    schedulePerformWorkUntilDeadline = () => {
+      timeoutId = setImmediate(performWorkUntilDeadline);
+    };
+
+    disposeScheduledWork = () => {
+      if (typeof timeoutId !== 'undefined') {
+        clearImmediate(timeoutId);
+        timeoutId = undefined;
+      }
+    }
+  } else if (typeof MessageChannel !== 'undefined') {
+    const channel = new MessageChannel();
+    const port = channel.port2;
+
+    channel.port1.onmessage = performWorkUntilDeadline;
+    schedulePerformWorkUntilDeadline = () => {
+      port.postMessage(null);
+    };
+
+    disposeScheduledWork = () => {
+      channel.port1.onmessage = null;
+      channel.port1.close();
+      channel.port2.close();
+    }
+  } else {
+    // We should only fallback here in non-browser environments.
+    let timeoutId: any;
+    schedulePerformWorkUntilDeadline = () => {
+      timeoutId = setTimeout(performWorkUntilDeadline, 0);
+    };
+
+    disposeScheduledWork = () => {
+      if (typeof timeoutId !== 'undefined') {
+        clearImmediate(timeoutId);
+        timeoutId = undefined;
+      }
+    }
+  }
+
+  onStart = () => nzGlobals[NZ_ON_START].next();
+  onDone = () => nzGlobals[NZ_ON_DONE].next();
+  onStable = () => {
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerStable;
+    nzGlobals[NZ_ON_STABLE].next();
+  };
+  onUnstable = () => {
+    if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerStable) {
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.SchdulerStable;
+      nzGlobals[NZ_ON_UNSTABLE].next();
+    }
+  }
+
+  nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchedulerInitilized;
+}
+
+function initializeSchedulerForTesting(): void {
+  scheduleMicrotask = (fn: () => void) => {
+    const zone = Zone && Zone.current;
+
+    if (typeof queueMicrotask === 'function') {
+      if (zone) {
+        zone.run(() => queueMicrotask(fn));
+      } else {
+        queueMicrotask(fn);
+      }
+    } else {
+      if (zone) {
+        zone.run(() => Promise.resolve().then(fn));
+      } else {
+        Promise.resolve().then();
+      }
+    }
+  }
+
+  schedulePerformWorkUntilDeadline = () => {
+    const zone = Zone && Zone.current;
+    let timeoutId: any;
+    if (typeof setImmediate === 'function') {
+      if (zone) {
+        zone.run(() => setImmediate(() => {
+          performWorkUntilDeadline();
+        }));
+      } else {
+        setImmediate(() => {
+          performWorkUntilDeadline()
+        });
+      }
+
+      disposeScheduledWork = () => {
+        if (typeof timeoutId === 'undefined') { return; }
+        if (zone) {
+          zone.run(() => clearImmediate(timeoutId));
+        } else {
+          clearImmediate(timeoutId);
+        }
+        timeoutId = undefined;
+      }
+    } else {
+      if (zone) {
+        zone.run(() => setTimeout(() => {
+          performWorkUntilDeadline()
+        }, 0));
+      } else {
+        setTimeout(() => {
+          performWorkUntilDeadline();
+        }, 0);
+      }
+
+      disposeScheduledWork = () => {
+        if (typeof timeoutId === 'undefined') { return; }
+        if (zone) {
+          zone.run(() => clearTimeout(timeoutId));
+        } else {
+          clearTimeout(timeoutId);
+        }
+        timeoutId = undefined;
+      }
+    }
+  }
+
+  onStart = () => nzGlobals[NZ_ON_START].next();
+  onDone = () => nzGlobals[NZ_ON_DONE].next();
+  onStable = () => {
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerStable;
+    nzGlobals[NZ_ON_STABLE].next();
+  };
+  onUnstable = () => {
+    if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerStable) {
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.SchdulerStable;
+      nzGlobals[NZ_ON_UNSTABLE].next();
+    }
+  }
+
+  nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchedulerInitilized;
+}
+
+function deinitializeScheduler(): void {
+
+  disposeScheduledWork();
+
+  disposeScheduledWork = noopFn;
+  schedulePerformWorkUntilDeadline = noopFn;
+  scheduleMicrotask = noopFn;
+  onStart = noopFn;
+  onDone = noopFn;
+  onStable = noopFn;
+  onUnstable = noopFn;
+  taskIdCounter = 1;
+  isPerformingWork = false;
+  isHostCallbackScheduled = false;
+  isHostTimeoutScheduled = false;
+  currentTask = null;
+  pendingTaskCallbacksCount = 0;
+
+  let task = pop(taskQueue);
+  while(task) { task = pop(taskQueue); }
+
+  nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerStable;
+  nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.SchedulerInitilized;
+
+}
 
 export {
-  runWithPriority,
-  next,
   scheduleCallback,
   cancelCallback,
   getTaskQueue,
-  wrapCallback,
-  getCurrentPriorityLevel,
-  shouldYieldToHost as shouldYield,
-  _requestPaint as requestPaint,
-  continueExecution,
-  pauseExecution,
-  getFirstCallbackNode,
-  getCurrentTime as now,
   forceFrameRate as forceFrameRate,
-  isWorkLoopRunning,
-  setOnStartCallback,
-  setOnDoneCallback,
-  setOnStableCallback,
+  initializeScheduler,
+  initializeSchedulerForTesting,
+  deinitializeScheduler
 };

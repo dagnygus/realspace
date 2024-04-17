@@ -11,7 +11,7 @@
   </div>
 
   <form class="search-box-container relative mat-elevation-z3 rounded-[20px] justify-self-center"
-       [class.search-box-container-expanded]="vm.searchboxExpanded$ | in:cdRef"
+       [class.search-box-container-expanded]="vm.searchboxExpanded | in:cdRef"
        (ngSubmit)="vm.searchMovieOrToogleSearchboxSize()">
 
     <div class="absolute top-0 left-[20px] right-[20px] h-full grid items-center justify-items-end">
@@ -36,7 +36,7 @@
       </div>
     </button>
   </div>
-  <div class="absolute bottom-0 left-0 w-full" *nzIf="vm.isNavigating$">
+  <div class="absolute bottom-0 left-0 w-full" *sigIf="vm.isNavigating">
     <mat-progress-bar mode="indeterminate" color="accent"/>
   </div>
 </div>

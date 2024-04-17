@@ -1,8 +1,7 @@
-import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Injector, Input, IterableChangeRecord, NgIterable, OnDestroy, OnInit, Optional, PLATFORM_ID, Signal, TemplateRef, TrackByFunction, ViewContainerRef, inject, isSignal } from "@angular/core";
+import { ChangeDetectorRef, Directive, DoCheck, EmbeddedViewRef, Host, Inject, Injector, Input, IterableChangeRecord, NgIterable, OnDestroy, OnInit, Optional, PLATFORM_ID, Signal, TemplateRef, TrackByFunction, ViewContainerRef, WritableSignal, computed, inject, isSignal } from "@angular/core";
 import { BehaviorSubject, NextObserver, Observable, ReplaySubject, Subject, Subscribable, Subscription, distinctUntilChanged, map, merge, of, switchAll } from "rxjs";
-import { IterableChangeObserver, IterableChangeTracker, IterableChangeTrackers, Priority, assertNoopZoneEnviroment, detectChangesSync, fromPromiseLike, fromSignal, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
-import { NZ_FOR_CONFIG, NZ_QUERY_VIEW, NzForConfiguration, QueryView, QueryViewItem } from "../injection-tokens/injection-tokens";
-import { isPlatformServer } from "@angular/common";
+import { IterableChangeObserver, IterableChangeTracker, IterableChangeTrackers, NzScheduler, Priority, assertNoopZoneEnviroment, detectChangesSync, fromPromiseLike, fromSignal, fromSubscribable, isPromiseLike, isSubscribable, scheduleWork } from "../../core";
+import { NZ_FOR_CONFIG, NzForConfiguration } from "../injection-tokens/injection-tokens";
 
 type NzForOfInput<T, U extends NgIterable<T> = NgIterable<T>> = U & NgIterable<T> | null | undefined;
 
@@ -13,7 +12,6 @@ interface _NzForView<T, U extends NgIterable<T> = NgIterable<T>> {
     trackByFn: TrackByFunction<T> | null,
     renderCb: NextObserver<NzForOfInput<T, U>> | null,
     interruptCb: NextObserver<void> | null,
-    queryView: QueryView | null
   ): void;
   dispose(): void;
 }
@@ -36,7 +34,8 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
   private _trackByFn?: TrackByFunction<T> | null = null
   private _renderCb?: NextObserver<NzForOfInput<T, U>> | null = null;
   private _interruptCb: NextObserver<void> | null = null;
-  private _queryView: QueryView | null = null;
+  private _shouldRiseRenderCb = false;
+  private _cachedRiseRenderCb = false;
 
   get optimized(): boolean { return !this._unoptimized; }
 
@@ -53,14 +52,12 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
     trackByFn: TrackByFunction<T> | null,
     renderCb: NextObserver<NzForOfInput<T, U>> | null,
     interruptCb: NextObserver<void> | null,
-    queryView: QueryView | null
   ): void {
     if (this._isInit) { return; }
 
     this._trackByFn = trackByFn;
     this._renderCb = renderCb;
     this._interruptCb = interruptCb;
-    this._queryView = queryView;
 
     this._subscription.add(
       this._optimized$.subscribe((optimized) => this._unoptimized = !optimized)
@@ -76,11 +73,6 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
       this._nzForOf$.subscribe((nzForOf) => {
         if (this.nonobservable && !this._unoptimized) { return; }
 
-        // if (this._queryView && this._queryViewCheckRequested && this._queryView.isChecking()) {
-        //   this._queryViewCheckRequested = false;
-        //   return;
-        // }
-
         if (!this._changeTracker && nzForOf) {
           this._changeTracker = this._iterableChangeTrackers.find(nzForOf).create(this._trackByFn);
         }
@@ -88,7 +80,6 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
         if (this._changeTracker) {
 
           this._nzForOf = nzForOf;
-          let shouldRunOnDone = false;
 
           if (!this._renderingComplete) {
             if (this._interruptCb) {
@@ -99,7 +90,7 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
             for (let i = 0; i < this._viewContainerRef.length; i++) {
               currentState[i] = (this._viewContainerRef.get(i) as EmbeddedViewRef<DefaultNzForContext<T, U>>).context.$implicit
             }
-            shouldRunOnDone = !this._changeTracker.findChanges(currentState);
+            this._changeTracker.findChanges(currentState);
           }
 
           if (this._changeTracker.findChanges(nzForOf)) {
@@ -107,10 +98,8 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
             this._chachedUnoptimized = this._unoptimized;
             this._count = this._changeTracker.length || 0;
             this._changeTracker.applyChanges(this);
-          } else if (shouldRunOnDone) {
+          } else if (!this._renderingComplete) {
             this.onDone();
-          } else {
-            this._renderingComplete = true;
           }
 
         }
@@ -124,9 +113,6 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
     this._subscription.unsubscribe();
     this._abort$.next();
     this._abort$.complete();
-    if (this._queryView) {
-      this._queryView.dismiss(this);
-    }
   }
 
   onAdd(record: IterableChangeRecord<T>, index: number | undefined): void {
@@ -139,8 +125,8 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
       );
       context.cdRef = viewRef;
       detectChangesSync(viewRef);
-    })
-    this._notifyQueryView();
+    });
+    this._shouldRiseRenderCb = true;
   }
 
   onRemove(_: IterableChangeRecord<T>, adjustedIndex: number): void {
@@ -149,7 +135,7 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
       this._viewContainerRef.remove(adjustedIndex);
       viewRef.detectChanges();
     });
-    this._notifyQueryView();
+    this._shouldRiseRenderCb = true;
   }
 
   onMove(record: IterableChangeRecord<T>, adjustedPreviousIndex: number, currentIndex: number, changed: boolean): void {
@@ -169,7 +155,7 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
         detectChangesSync(viewRef);
       }
     });
-    this._notifyQueryView();
+    this._shouldRiseRenderCb = true;
   }
 
   onUpdate(record: IterableChangeRecord<T>, index: number): void {
@@ -208,27 +194,15 @@ class _ClientNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
   }
 
   onDone(): void {
+    this._cachedRiseRenderCb = this._shouldRiseRenderCb;
+    this._shouldRiseRenderCb = false;
     scheduleWork(this._priority, this._abort$, () => {
       this._renderingComplete = true;
-      if (this._renderCb) {
+      this._changeTracker!.reset();
+      if ((this._chachedUnoptimized || this._cachedRiseRenderCb) && this._renderCb) {
         this._renderCb.next(this._nzForOf);
       }
     });
-  }
-
-  private _notifyQueryView(): void {
-    if (this._queryView) {
-      if (this._queryView.isChecking()) {
-        const queryView = this._queryView;
-        scheduleWork(this._priority, this._abort$, () => {
-          queryView.notify(this)
-          // this._queryViewCheckRequested = true;
-        })
-      } else {
-        this._queryView.notify(this);
-        // this._queryViewCheckRequested = true;
-      }
-    }
   }
 
 }
@@ -246,11 +220,13 @@ class _ServerNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
   private _count = 0;
   private _isInit = false;
   private _subscription = new Subscription();
+  private _shouldRiseRenderCb = false;
 
+  public optimized = false;
   public nonobservable = false;
-  public readonly optimized = false;
+  // public readonly optimized = false;
 
-  constructor(private _nzForOf$: Observable<NzForOfInput<T, U>>,) {}
+  constructor(private _nzForOf$: Observable<NzForOfInput<T, U>>, private _optimized$: Observable<boolean>) {}
 
   init(
     trackByFn: TrackByFunction<T> | null,
@@ -259,6 +235,8 @@ class _ServerNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
   ): void {
     if (this._isInit) { return; }
     this._trackByFn = trackByFn;
+
+    this._subscription.add(this._optimized$.subscribe((optimized) => this.optimized = optimized));
 
     this._subscription.add(
       this._nzForOf$.subscribe((nzForOf) => {
@@ -293,16 +271,19 @@ class _ServerNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
       this._templateRef, context, index
     );
     context.cdRef = viewRef;
+    this._shouldRiseRenderCb = true;
   }
 
   onRemove(_: IterableChangeRecord<T>, adjustedIndex: number | undefined): void {
     this._viewContainerRef.remove(adjustedIndex);
+    this._shouldRiseRenderCb = true;
   }
 
   onMove(record: IterableChangeRecord<T>, adjustedPreviousIndex: number, currentIndex: number, changed: boolean): void {
     const viewRef = this._viewContainerRef.get(adjustedPreviousIndex) as EmbeddedViewRef<DefaultNzForContext<T, U>>;
     this._viewContainerRef.move(viewRef, currentIndex);
     this._updateContext(viewRef.context, record.currentIndex!, changed ? record.item  : null);
+    this._shouldRiseRenderCb = true;
   }
 
   onUpdate(record: IterableChangeRecord<T>, index: number): void {
@@ -316,8 +297,12 @@ class _ServerNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
   }
 
   onDone(): void {
-    if (this._renderCb) { this._renderCb.next(this._nzForOf); }
     this._cdRef.markForCheck();
+    this._changeTracker!.reset();
+    if ((!this.optimized || this._shouldRiseRenderCb) && this._renderCb) {
+      this._renderCb.next(this._nzForOf);
+    }
+    this._shouldRiseRenderCb = false;
   }
 
   private _updateContext(context: NzForContext<T>, index: number, item: T | null): void {
@@ -335,20 +320,19 @@ class _ServerNzForView<T, U extends NgIterable<T> = NgIterable<T>> implements _N
 
 }
 
+
 @Directive({
   selector: '[nzFor][nzForOf]',
   standalone: true
 })
-export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implements DoCheck, OnInit, OnDestroy, QueryViewItem {
+export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implements DoCheck, OnInit, OnDestroy {
 
   private _nzForOf$$ = new ReplaySubject<Observable<NzForOfInput<T, U>>>(1);
   private _priority$$ = new ReplaySubject<Observable<Priority>>(1);
   private _nonobservable$: Observable<NzForOfInput<T, U>> | null = null;
   private _optimized$$ = new ReplaySubject<Observable<boolean>>(1);
-  private _queryView: QueryView | null = null;
   private _trackByFn: TrackByFunction<T> | null = null;
   private _nzForView: _NzForView<T, U>;
-  private _lockNzForChangeDetection = false;
 
   @Input()
   set nzForOf(nzForOf: Signal<NzForOfInput<T,U>> | Observable<NzForOfInput<T,U>> | Subscribable<NzForOfInput<T,U>> | Promise<NzForOfInput<T,U>> | PromiseLike<NzForOfInput<T,U>> | NzForOfInput<T,U>) {
@@ -405,9 +389,7 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
   @Input() nzForRenderCallback: NextObserver<NzForOfInput<T, U>> | null = null;
   @Input() nzForInterruptCallback: NextObserver<void> | null = null
 
-  constructor(@Inject(PLATFORM_ID) platformId: object,
-              @Host() @Optional() @Inject(NZ_QUERY_VIEW) queryView: QueryView | null,
-              @Optional() @Inject(NZ_FOR_CONFIG) config: NzForConfiguration | null,
+  constructor(@Optional() @Inject(NZ_FOR_CONFIG) config: NzForConfiguration | null,
               private _injector: Injector) {
     assertNoopZoneEnviroment();
 
@@ -415,43 +397,19 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
     const optimized$ = this._optimized$$.pipe(switchAll());
     const priority$ = this._priority$$.pipe(switchAll());
 
-    if (isPlatformServer(platformId)) {
-      this._nzForView = new _ServerNzForView(nzForOf$)
-    } else {
+    if (NzScheduler.enabled) {
       this._nzForView = new _ClientNzForView(nzForOf$, priority$, optimized$)
+    } else {
+      this._nzForView = new _ServerNzForView(nzForOf$, optimized$)
     }
 
-    const notifyQueryView = config?.notifyQueryView ?? true;
     const optimized = config?.optimized ?? false;
     const defaultPriority = config?.defaultPriority ?? Priority.normal
     this._priority$$.next(of(defaultPriority));
     this._optimized$$.next(of(optimized));
-    if (notifyQueryView) {
-      this._queryView = queryView;
-    }
-  }
-
-  onBeforeQueryViewCheck(): void {
-    this._lockNzForChangeDetection = true
-  }
-
-  onAfterQueryViewCheck(): void {
-    this._lockNzForChangeDetection = false;
-  }
-
-  onQueryViewCheckAborted(): void {
-    // noop
-  }
-
-  onQueryViewCheckRequested(): void {
-    // noop
   }
 
   ngDoCheck(): void {
-    if (this._lockNzForChangeDetection) {
-      return;
-    }
-
     if (this._nonobservable$ && !this._nzForView.optimized) {
       this._nzForOf$$.next(this._nonobservable$);
     }
@@ -459,18 +417,11 @@ export class NzForDirective<T, U extends NgIterable<T> = NgIterable<T>> implemen
 
 
   ngOnInit(): void {
-    if (this._queryView) {
-      this._queryView.register(this);
-    }
-
-    this._nzForView.init(this._trackByFn, this.nzForRenderCallback, this.nzForInterruptCallback, this._queryView);
+    this._nzForView.init(this._trackByFn, this.nzForRenderCallback, this.nzForInterruptCallback);
   }
 
   ngOnDestroy(): void {
     this._nzForView.dispose();
-    if (this._queryView) {
-      this._queryView.unregister(this);
-    }
   }
 
   static ngTemplateGuard_nzFor: 'binding';

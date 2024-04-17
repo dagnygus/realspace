@@ -1,3 +1,8 @@
+import { Injectable, OnDestroy, Signal, inject, signal } from "@angular/core";
+import { State } from "@ngrx/store";
+import { MonoTypeOperatorFunction, Observable, Subject, takeUntil } from "rxjs";
+import { AppState, MovieListState } from "./abstract-models";
+
 export enum Genre {
   Action = 28,
   Adventure = 12,
@@ -45,3 +50,44 @@ _genreMap.set(Genre.War, Genre[Genre.War]);
 _genreMap.set(Genre.Western, Genre[Genre.Western]);
 
 export const genreMap = _genreMap;
+
+@Injectable()
+export abstract class ViewModelBase implements OnDestroy {
+
+  private _destroySubject = new Subject<void>();
+
+  ngOnDestroy(): void {
+    this._destroySubject.next();
+    this._destroySubject.complete();
+  }
+
+  protected takeUntilDestroy<T>(): MonoTypeOperatorFunction<T> {
+    return takeUntil(this._destroySubject);
+  }
+
+  protected toSignal<T>(initialValue: T, source: Observable<T>): Signal<T> {
+    const value = signal(initialValue);
+    source.pipe(takeUntil(this._destroySubject)).subscribe((val) => value.set(val));
+    return value.asReadonly();
+  }
+
+}
+
+export abstract class BaseStateRef<T extends object> {
+
+  private _state = inject(State<AppState>);
+
+  get state(): T {
+    if (this._state.value[this._stateName] == null) {
+      throw new Error(this._stateName + ': State not found');
+    }
+    return this._state.value[this._stateName]
+  }
+
+  constructor(private _stateName: keyof AppState) { }
+}
+
+export const movieListInitialState: MovieListState = {
+  lastRequestedPage: 0,
+  movies: []
+}

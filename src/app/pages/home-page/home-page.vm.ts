@@ -1,7 +1,7 @@
 import { NowPlaingMoviesRef } from './../../state/now-playing-movie-list/state';
-import { Injectable, OnDestroy } from "@angular/core";
+import { Injectable, OnDestroy, Signal } from "@angular/core";
 import { Store, select } from "@ngrx/store";
-import { AppState, MovieListStateItem, StateStatus } from "../../models/models";
+import { AppState, MovieListStateItem, StateStatus } from "../../models/abstract-models";
 import { Observable, ReplaySubject, Subject, distinctUntilChanged, map, merge, shareReplay, startWith, takeUntil, tap } from "rxjs";
 import { clearNowPlayingMovieListState, getNowPlayingMovies, getNowPlayingMoviesStart, nowPlayingMovieListStateError, updateNowPlayingMovieListState } from "../../state/now-playing-movie-list/actions";
 import { clearPopularMovieListState, getPopularMovies, getPopularMoviesStart, popularMoviesListStateError, updatePopularMovieListState } from "../../state/popular-movie-list/actions";
@@ -12,28 +12,32 @@ import { NzScheduler, Priority } from '../../noop-zone';
 import { PopularMoviesRef } from '../../state/popular-movie-list/state';
 import { TopRatedMoviesRef } from '../../state/top-rated-movie-list/state';
 import { UpcomingMoviesRef } from '../../state/upcoming-movie-list/state';
-import { SHARE_REPLAY_CONFIG } from '../../utils/constants';
+import { ViewModelBase } from '../../models/object-model';
 
 @Injectable()
-export class HomePageViewModel implements OnDestroy {
+export class HomePageViewModel extends ViewModelBase implements OnDestroy {
 
   private _store: Store<AppState>;
-  private _destory$ = new Subject<void>();
+  // private _destory$ = new Subject<void>();
 
-  nowPlaingMovies$: Observable<readonly MovieListStateItem[]>;
-  popularMovies$: Observable<readonly MovieListStateItem[]>;
-  topRatedMovies$: Observable<readonly MovieListStateItem[]>;
-  upcomingMovies$: Observable<readonly MovieListStateItem[]>;
+  // nowPlaingMovies$: Observable<readonly MovieListStateItem[]>;
+  // popularMovies$: Observable<readonly MovieListStateItem[]>;
+  // topRatedMovies$: Observable<readonly MovieListStateItem[]>;
+  // upcomingMovies$: Observable<readonly MovieListStateItem[]>;
 
-  // nowPlaingMoviesStateStatus$: Observable<StateStatus>;
-  // popularMoviesStateStatus$: Observable<StateStatus>;
-  // topRatedMoviesStateStatus$: Observable<StateStatus>;
-  // upcomingMoviesStateStatus$: Observable<StateStatus>;
+  nowPlaingMovies: Signal<readonly MovieListStateItem[]>;
+  popularMovies: Signal<readonly MovieListStateItem[]>;
+  topRatedMovies: Signal<readonly MovieListStateItem[]>;
+  upcomingMovies: Signal<readonly MovieListStateItem[]>;
+  nowPlaingMoviesStateStatus: Signal<StateStatus>;
+  popularMoviesStateStatus: Signal<StateStatus>;
+  topRatedMoviesStateStatus: Signal<StateStatus>;
+  upcomingMoviesStateStatus: Signal<StateStatus>;
 
-  nowPlaingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  popularMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  topRatedMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  upcomingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
+  // nowPlaingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
+  // popularMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
+  // topRatedMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
+  // upcomingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
 
   constructor(store: Store<AppState>,
               actions$: Actions,
@@ -42,30 +46,50 @@ export class HomePageViewModel implements OnDestroy {
               popularMoviesRef: PopularMoviesRef,
               topRatedMoviesRef: TopRatedMoviesRef,
               upcomingMoviesRef: UpcomingMoviesRef) {
-
+    super();
     this._store = store;
 
-    this.nowPlaingMovies$ = store.pipe(
+    const nowPlaingMovies$ = store.pipe(
       select(({ nowPlayingMovies }) => nowPlayingMovies.movies),
       nzScheduler.switchOn(Priority.low),
     );
 
-    this.popularMovies$ = store.pipe(
+    this.nowPlaingMovies = this.toSignal(
+      nowPlaingMoviesRef.state.movies,
+      nowPlaingMovies$,
+    );
+
+    const popularMovies$ = store.pipe(
       select(({ popularMovies }) => popularMovies.movies),
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.topRatedMovies$ = store.pipe(
+    this.popularMovies = this.toSignal(
+      popularMoviesRef.state.movies,
+      popularMovies$
+    )
+
+    const topRatedMovies$ = store.pipe(
       select(({ topRatedMovies }) => topRatedMovies.movies),
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.upcomingMovies$ = store.pipe(
+    this.topRatedMovies = this.toSignal(
+      topRatedMoviesRef.state.movies,
+      topRatedMovies$
+    )
+
+    const upcomingMovies$ = store.pipe(
       select(({ upcomingMovies }) => upcomingMovies.movies),
       nzScheduler.switchOn(Priority.low)
     );
 
-    merge(
+    this.upcomingMovies = this.toSignal(
+      upcomingMoviesRef.state.movies,
+      upcomingMovies$
+    );
+
+    const nowPlaingMoviesStateStatus$ = merge(
       actions$.pipe(
         ofType(getNowPlayingMoviesStart), map(() => StateStatus.pending)),
       actions$.pipe(
@@ -75,13 +99,17 @@ export class HomePageViewModel implements OnDestroy {
         ofType(nowPlayingMovieListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      startWith(nowPlaingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
+      // startWith(nowPlaingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.nowPlaingMoviesStateStatus$)
+    )
 
-    merge(
+    this.nowPlaingMoviesStateStatus = this.toSignal(
+      nowPlaingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty,
+      nowPlaingMoviesStateStatus$
+    )
+
+    const popularMoviesStateStatus$ = merge(
       actions$.pipe(
         ofType(getPopularMoviesStart), map(() => StateStatus.pending)
       ),
@@ -92,13 +120,18 @@ export class HomePageViewModel implements OnDestroy {
         ofType(popularMoviesListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      startWith(popularMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
+      // startWith(popularMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.popularMoviesStateStatus$);
+      // takeUntil(this._destory$)
+    );
 
-    merge(
+    this.popularMoviesStateStatus = this.toSignal(
+      popularMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty,
+      popularMoviesStateStatus$
+    )
+
+    const topRatedMoviesStateStatus$ = merge(
       actions$.pipe(
         ofType(getTopRatedMoviesStart), map(() => StateStatus.pending)
       ),
@@ -109,13 +142,18 @@ export class HomePageViewModel implements OnDestroy {
         ofType(topRatedListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      startWith(topRatedMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
+      // startWith(topRatedMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$),
-    ).subscribe(this.topRatedMoviesStateStatus$);
+      // takeUntil(this._destory$),
+    );
 
-    merge(
+    this.topRatedMoviesStateStatus = this.toSignal(
+      topRatedMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty,
+      topRatedMoviesStateStatus$
+    )
+
+    const upcomingMoviesStateStatus$ = merge(
       actions$.pipe(
         ofType(getUpcomingMoviesStart), map(() => StateStatus.pending)
       ),
@@ -126,11 +164,16 @@ export class HomePageViewModel implements OnDestroy {
         ofType(upcomingMovieListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      startWith(upcomingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
+      // startWith(upcomingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.upcomingMoviesStateStatus$);
+      // takeUntil(this._destory$)
+    );
+
+    this.upcomingMoviesStateStatus = this.toSignal(
+      upcomingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty,
+      upcomingMoviesStateStatus$
+    )
 
     store.dispatch(getNowPlayingMovies());
     store.dispatch(getPopularMovies());
@@ -138,9 +181,10 @@ export class HomePageViewModel implements OnDestroy {
     store.dispatch(getUpcomingMovies());
   }
 
-  ngOnDestroy(): void {
-    this._destory$.next();
-    this._destory$.complete();
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    // this._destory$.next();
+    // this._destory$.complete();
 
     this._store.dispatch(clearNowPlayingMovieListState());
     this._store.dispatch(clearPopularMovieListState());

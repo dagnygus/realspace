@@ -1,38 +1,47 @@
-import { Injectable, OnDestroy } from "@angular/core";
-import { ActionCreator, Store, select } from "@ngrx/store";
-import { AppState, MovieListStateItem } from "../../models/models";
+import { Injectable, OnDestroy, Signal, signal } from "@angular/core";
+import { Store, select } from "@ngrx/store";
+import { AppState, MovieListStateItem } from "../../models/abstract-models";
 import { Actions, ofType } from "@ngrx/effects";
 import { NavigationEnd, Router } from "@angular/router";
-import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, of, skip, startWith, switchMap, take, takeUntil, tap } from "rxjs";
+import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, startWith, switchMap, take, takeUntil } from "rxjs";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { RouterRef } from "../../state/router/state";
-import { CustomMovieListActionNames, clearCustomMovieListState, extendCustomMovieListByCategoty, extendCustomMovieListByGenre, replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, replaceOrExtendCustomMovieListByCategory, replaceOrExtendCustomMovieListByGenre, searchMoviesWithKey, searchMoviesWithKyeStart, updateCustomMovieListState } from "../../state/custom-movie-list-state/actions";
-import { Genre, genreMap } from "../../utils/genres";
-import { MAPED_MOVIE_CATEGORES } from "../../utils/constants";
-import { TypedAction } from "@ngrx/store/src/models";
+import { clearCustomMovieListState, extendCustomMovieListByCategoty, extendCustomMovieListByGenre, replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, replaceOrExtendCustomMovieListByCategory, replaceOrExtendCustomMovieListByGenre, searchMoviesWithKey, searchMoviesWithKyeStart, updateCustomMovieListState } from "../../state/custom-movie-list-state/actions";
+import { ViewModelBase, genreMap } from "../../models/object-model";
+import { MAPED_MOVIE_CATEGORES } from "../../utils/utils";
+import { CustomMovieListRef } from "../../state/custom-movie-list-state/state";
 
 @Injectable()
-export class MovieListPageViewModel implements OnDestroy {
-  private _destory$ = new Subject<void>();
+export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
+  // private _destory$ = new Subject<void>();
 
-  movies$: Observable<readonly MovieListStateItem[]>;
-  listTitle$ = new ReplaySubject<string>(1);
-  isStateExtending$ = new ReplaySubject<boolean>(1);
-  isStateReplacing$ = new ReplaySubject<boolean>(1);
+  // movies$: Observable<readonly MovieListStateItem[]>;
+  // listTitle$ = new ReplaySubject<string>(1);
+  // isStateExtending$ = new ReplaySubject<boolean>(1);
+  // isStateReplacing$ = new ReplaySubject<boolean>(1);
+
+  movies: Signal<readonly MovieListStateItem[]>;
+  listTitle = signal('');
+  isStateExtending: Signal<boolean>;
+  isStateReplacing: Signal<boolean>;
 
   constructor(
     router: Router,
     nzScheduler: NzScheduler,
     actions$: Actions,
+    moviesRef: CustomMovieListRef,
     private _store: Store<AppState>,
-    private _routerStateRef: RouterRef) {
-
-    this.movies$ = _store.pipe(
+    private _routerStateRef: RouterRef,
+  ) {
+    super();
+    const movies$ = _store.pipe(
       select(({ customMovieList }) => customMovieList.movies),
       nzScheduler.switchOn(Priority.low)
     );
 
-    merge(
+    this.movies = this.toSignal(moviesRef.state.movies, movies$);
+
+    const isStateExtending$ = merge(
       actions$.pipe(
         ofType(extendCustomMovieListByCategoty, extendCustomMovieListByGenre),
         map(() => true)
@@ -42,13 +51,15 @@ export class MovieListPageViewModel implements OnDestroy {
         map(() => false)
       )
     ).pipe(
-      startWith(true),
+      // startWith(true),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.isStateExtending$);
+      // takeUntil(this._destory$)
+    );
 
-    merge(
+    this.isStateExtending = this.toSignal(true, isStateExtending$);
+
+    const isStateReplacing$ = merge(
       actions$.pipe(
         ofType(replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, searchMoviesWithKyeStart),
         map(() => true)
@@ -60,17 +71,18 @@ export class MovieListPageViewModel implements OnDestroy {
     ).pipe(
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      takeUntil(this._destory$)
-    ).subscribe(this.isStateReplacing$);
+      // takeUntil(this._destory$)
+    );
+
+    this.isStateReplacing = this.toSignal(false, isStateReplacing$);
 
     router.events.pipe(
       filter((e) => e instanceof NavigationEnd),
       take(1),
       switchMap(() => _store.pipe(select(({ router }) => router.state.params))),
       observeOn(asapScheduler),
-      takeUntil(this._destory$),
+      this.takeUntilDestroy(),
     ).subscribe((routerParams) => {
-
 
       const movieListKind =  routerParams['movieListKind'];
       const movieListParam =  routerParams['movieListParam'];
@@ -78,19 +90,19 @@ export class MovieListPageViewModel implements OnDestroy {
       if (movieListKind === 'genre') {
         const genreId = +movieListParam;
         _store.dispatch(replaceOrExtendCustomMovieListByGenre({ genreId }))
-        this.listTitle$.next(genreMap.get(genreId)!)
+        this.listTitle.set(genreMap.get(genreId)!)
         return;
       }
 
       if (movieListKind === 'category') {
         _store.dispatch(replaceOrExtendCustomMovieListByCategory({ category: movieListParam }))
-        this.listTitle$.next(MAPED_MOVIE_CATEGORES[movieListParam]);
+        this.listTitle.set(MAPED_MOVIE_CATEGORES[movieListParam]);
         return;
       }
 
       if (movieListKind === 'search') {
         _store.dispatch(searchMoviesWithKey({ key: movieListParam }));
-        this.listTitle$.next(`Search: ${movieListParam}`);
+        this.listTitle.set(`Search: ${movieListParam}`);
         return;
       }
 
@@ -104,20 +116,21 @@ export class MovieListPageViewModel implements OnDestroy {
     if (movieListKind === 'genre') {
       const genreId = +movieListParam;
       this._store.dispatch(replaceOrExtendCustomMovieListByGenre({ genreId }))
-      this.listTitle$.next(genreMap.get(genreId)!)
+      this.listTitle.set(genreMap.get(genreId)!)
       return;
     }
 
     if (movieListKind === 'category') {
       this._store.dispatch(replaceOrExtendCustomMovieListByCategory({ category: movieListParam }))
-      this.listTitle$.next(MAPED_MOVIE_CATEGORES[movieListParam]);
+      this.listTitle.set(MAPED_MOVIE_CATEGORES[movieListParam]);
       return;
     }
   }
 
-  ngOnDestroy(): void {
-    this._destory$.next();
-    this._destory$.complete();
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    // this._destory$.next();
+    // this._destory$.complete();
     this._store.dispatch(clearCustomMovieListState());
   }
 }
