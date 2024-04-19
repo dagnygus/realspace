@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, Pipe, PipeTransform, importProvidersFrom, inject } from '@angular/core';
-import { Observable, asyncScheduler, map, subscribeOn } from 'rxjs';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { asyncScheduler, subscribeOn } from 'rxjs';
 import { InPipeModule, NzClassModule, NzForModule, NzIfModule, NzLetModule, Priority, initializeComponent } from '../../noop-zone';
 import { YearFromDatePipe } from '../../common/pipes/year-from-date.pipe';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,7 +8,12 @@ import { CdkScrollable } from '@angular/cdk/scrolling';
 import { MovieCardImgSrcPipe } from '../../common/pipes/movie-card-img-src.pipe';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PosterSrcPipe, PosterSrcSetPipe } from '../../common/pipes/poster-src.pipe';
-import { RouterModule } from '@angular/router';
+import { Route, RouterModule } from '@angular/router';
+import { provideEffects } from '@ngrx/effects';
+import { provideState } from '@ngrx/store';
+import { CustomMovieListEffects } from '../../state/custom-movie-list-state/effects';
+import { customMovieListReducer } from '../../state/custom-movie-list-state/reducer';
+import { getStateName } from '../../utils/utils';
 
 const _RANGE_16 = [...Array(16).keys()];
 
@@ -57,3 +62,12 @@ export class MovieListPageComponent {
   }
 
 }
+
+export const MOVIE_LIST_PAGE_ROUTES: Route[] = [{
+  path: '',
+  component: MovieListPageComponent,
+  providers: [
+    provideState(getStateName('customMovieList'), customMovieListReducer),
+    provideEffects(CustomMovieListEffects)
+  ]
+}]

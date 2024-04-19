@@ -1,9 +1,9 @@
 import { Injectable, OnDestroy, Signal, signal } from "@angular/core";
 import { Store, select } from "@ngrx/store";
-import { AppState, MovieListStateItem } from "../../models/abstract-models";
+import { AppMovieListPageState, MovieListStateItem } from "../../models/abstract-models";
 import { Actions, ofType } from "@ngrx/effects";
 import { NavigationEnd, Router } from "@angular/router";
-import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, startWith, switchMap, take, takeUntil } from "rxjs";
+import { asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, switchMap, take } from "rxjs";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { RouterRef } from "../../state/router/state";
 import { clearCustomMovieListState, extendCustomMovieListByCategoty, extendCustomMovieListByGenre, replaceCustomMovieListByCategory, replaceCustomMovieListByGenre, replaceOrExtendCustomMovieListByCategory, replaceOrExtendCustomMovieListByGenre, searchMoviesWithKey, searchMoviesWithKyeStart, updateCustomMovieListState } from "../../state/custom-movie-list-state/actions";
@@ -13,12 +13,6 @@ import { CustomMovieListRef } from "../../state/custom-movie-list-state/state";
 
 @Injectable()
 export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
-  // private _destory$ = new Subject<void>();
-
-  // movies$: Observable<readonly MovieListStateItem[]>;
-  // listTitle$ = new ReplaySubject<string>(1);
-  // isStateExtending$ = new ReplaySubject<boolean>(1);
-  // isStateReplacing$ = new ReplaySubject<boolean>(1);
 
   movies: Signal<readonly MovieListStateItem[]>;
   listTitle = signal('');
@@ -30,7 +24,7 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
     nzScheduler: NzScheduler,
     actions$: Actions,
     moviesRef: CustomMovieListRef,
-    private _store: Store<AppState>,
+    private _store: Store<AppMovieListPageState>,
     private _routerStateRef: RouterRef,
   ) {
     super();
@@ -51,10 +45,8 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
         map(() => false)
       )
     ).pipe(
-      // startWith(true),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.isStateExtending = this.toSignal(true, isStateExtending$);
@@ -71,7 +63,6 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
     ).pipe(
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.isStateReplacing = this.toSignal(false, isStateReplacing$);
@@ -129,8 +120,6 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
 
   override ngOnDestroy(): void {
     super.ngOnDestroy();
-    // this._destory$.next();
-    // this._destory$.complete();
     this._store.dispatch(clearCustomMovieListState());
   }
 }

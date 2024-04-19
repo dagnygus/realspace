@@ -4,5 +4,5 @@ import { MovieListState } from "../../models/abstract-models";
 
 @Injectable({ providedIn: 'root' })
 export class CustomMovieListRef extends BaseStateRef<MovieListState> {
-  constructor() { super('customMovieList') }
+  constructor() { super('customMovieList'); }
 }

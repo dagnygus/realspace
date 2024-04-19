@@ -6,12 +6,23 @@ import { BackdropSrcPipe, BackdropSrcSetPipe } from '../../common/pipes/backdrop
 import { YearFromDatePipe } from '../../common/pipes/year-from-date.pipe';
 import { MatIconModule } from '@angular/material/icon';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Route, RouterModule } from '@angular/router';
 import { MovieSliderComponent } from '../../common/components/movie-slider/movie-slider.component';
 import { ProfileSrcPipe, ProfileSrcSetPipe } from '../../common/pipes/profile-src.pipe';
 import { ImageSrcPipe } from '../../common/pipes/image-src.pipe';
 import { PosterSrcPipe, PosterSrcSetPipe } from '../../common/pipes/poster-src.pipe';
 import { HorizonlaScrollDirective } from '../../common/directives/horizontal-scroll.directive';
+import { provideEffects } from '@ngrx/effects';
+import { provideState } from '@ngrx/store';
+import { CastEffects } from '../../state/cast/effects';
+import { castReducer } from '../../state/cast/reducer';
+import { RelatedMoviesEffects } from '../../state/related-movie-list/effects';
+import { relatedMoviesReducer } from '../../state/related-movie-list/reducer';
+import { SingleMovieEffects } from '../../state/single-movie/effects';
+import { singleMovieReducer } from '../../state/single-movie/reducer';
+import { VideosEffects } from '../../state/videos/effects';
+import { videosReducer } from '../../state/videos/reducer';
+import { getStateName } from '../../utils/utils';
 
 const _RANGE_6 = [...Array(6).keys()];
 const _RANGE_7 = [...Array(7).keys()];
@@ -52,3 +63,20 @@ export class MoviePageComponent {
   range7 = _RANGE_7;
   range9 = _RANGE_9
 }
+
+export const MOVIE_PAGE_ROUTES: Route[] = [{
+  path: '',
+  component: MoviePageComponent,
+  providers: [
+    provideState(getStateName('singleMovie'), singleMovieReducer),
+    provideState(getStateName('videos'), videosReducer),
+    provideState(getStateName('cast'), castReducer),
+    provideState(getStateName('relatedMovies'), relatedMoviesReducer),
+    provideEffects([
+      SingleMovieEffects,
+      VideosEffects,
+      CastEffects,
+      RelatedMoviesEffects
+    ])
+  ]
+}];

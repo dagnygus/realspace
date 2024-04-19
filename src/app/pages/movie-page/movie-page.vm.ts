@@ -1,6 +1,6 @@
 import { Injectable, OnDestroy, Signal } from "@angular/core";
-import { Observable, ReplaySubject, Subject, asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, startWith, switchMap, take, takeUntil, tap } from "rxjs";
-import { AppState, MovieListStateItem, MovieStateDetails, StateStatus } from "../../models/abstract-models";
+import { asapScheduler, distinctUntilChanged, filter, map, merge, observeOn, switchMap, take } from "rxjs";
+import { AppMoviePageState, MovieListStateItem, MovieStateDetails, StateStatus } from "../../models/abstract-models";
 import { Store, select } from "@ngrx/store";
 import { NzScheduler, Priority } from "../../noop-zone";
 import { NavigationEnd, Router } from "@angular/router";
@@ -18,18 +18,6 @@ import { ViewModelBase } from "../../models/object-model";
 
 @Injectable()
 export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
-  private _destory$ = new Subject<void>();
-
-  // movieDetails$: Observable<MovieStateDetails>;
-  // videoLinks$: Observable<readonly SafeResourceUrl[]>;
-  // cast$: Observable<readonly { readonly id: number; readonly name: string; readonly profilePath: string }[]>;
-  // relatedMovies$: Observable<readonly MovieListStateItem[]>;
-  // hasVideoLinks$: Observable<boolean>;
-
-  // movieDetailsStatus$ = new ReplaySubject<StateStatus>(1);
-  // videoLinksStatus$ = new ReplaySubject<StateStatus>(1);
-  // castStateStatus$ = new ReplaySubject<StateStatus>(1);
-  // relatedMoviesStatus$ = new ReplaySubject<StateStatus>(1);
 
   movieDetails: Signal<MovieStateDetails>;
   videoLinks: Signal<readonly SafeResourceUrl[]>;
@@ -42,8 +30,8 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
   relatedMoviesStatus: Signal<StateStatus>;
 
   constructor(
-    private _store: Store<AppState>,
-    private _movieRef: SingleMovieRef,
+    private _store: Store<AppMoviePageState>,
+    movieRef: SingleMovieRef,
     domSanitizer: DomSanitizer,
     nzScheduler: NzScheduler,
     router: Router,
@@ -61,7 +49,7 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       nzScheduler.switchOn(Priority.low)
     );
 
-    this.movieDetails = this.toSignal(_movieRef.state.details!, movieDetails$);
+    this.movieDetails = this.toSignal(movieRef.state.details!, movieDetails$);
 
     const videoLinks$ = _store.pipe(
       select(({ videos }) => videos.links.map((link) => domSanitizer.bypassSecurityTrustResourceUrl(link))),
@@ -96,10 +84,8 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateSingleMovieState), map(({ newState }) => newState.details === null ? StateStatus.empty : StateStatus.complete))
     ).pipe(
-      // startWith(signleMovieRef.state.details === null ? StateStatus.empty : StateStatus.complete),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.movieDetailsStatus = this.toSignal(
@@ -113,10 +99,8 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       actions$.pipe(ofType(videosStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateVideosState), map(({ newState }) => newState.links.length ? StateStatus.complete : StateStatus.empty))
     ).pipe(
-      // startWith(videosRef.state.links.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.videoLinksStatus = this.toSignal(
@@ -129,10 +113,8 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       actions$.pipe(ofType(castSateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateCastState), map(({ newState }) => newState.persons.length ? StateStatus.complete: StateStatus.empty))
     ).pipe(
-      // startWith(castRef.state.persons.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.castStateStatus = this.toSignal(
@@ -145,10 +127,8 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       actions$.pipe(ofType(relatedMovieListStateError), map(() => StateStatus.error)),
       actions$.pipe(ofType(updateRelatedMovieListState), map(({ newState }) => newState.movies.length ? StateStatus.complete: StateStatus.empty))
     ).pipe(
-      startWith(relatedMoviesRef.state.movies.length ? StateStatus.complete: StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.relatedMoviesStatus = this.toSignal(
@@ -161,7 +141,7 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
       take(1),
       switchMap(() => _store.pipe(select((state) => state.router.state.params))),
       observeOn(asapScheduler),
-      takeUntil(this._destory$),
+      this.takeUntilDestroy(),
     ).subscribe((params) => {
       const id = +params['movieId'];
 
@@ -181,7 +161,5 @@ export class MoviePageViewModel extends ViewModelBase implements OnDestroy {
     this._store.dispatch(clearVideosState());
     this._store.dispatch(clearCastState());
     this._store.dispatch(clearRelatedMovieListState());
-    this._destory$.next();
-    this._destory$.complete();
   }
 }

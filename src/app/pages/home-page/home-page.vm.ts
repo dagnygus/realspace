@@ -18,12 +18,6 @@ import { ViewModelBase } from '../../models/object-model';
 export class HomePageViewModel extends ViewModelBase implements OnDestroy {
 
   private _store: Store<AppState>;
-  // private _destory$ = new Subject<void>();
-
-  // nowPlaingMovies$: Observable<readonly MovieListStateItem[]>;
-  // popularMovies$: Observable<readonly MovieListStateItem[]>;
-  // topRatedMovies$: Observable<readonly MovieListStateItem[]>;
-  // upcomingMovies$: Observable<readonly MovieListStateItem[]>;
 
   nowPlaingMovies: Signal<readonly MovieListStateItem[]>;
   popularMovies: Signal<readonly MovieListStateItem[]>;
@@ -33,11 +27,6 @@ export class HomePageViewModel extends ViewModelBase implements OnDestroy {
   popularMoviesStateStatus: Signal<StateStatus>;
   topRatedMoviesStateStatus: Signal<StateStatus>;
   upcomingMoviesStateStatus: Signal<StateStatus>;
-
-  // nowPlaingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  // popularMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  // topRatedMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
-  // upcomingMoviesStateStatus$ = new ReplaySubject<StateStatus>(1);
 
   constructor(store: Store<AppState>,
               actions$: Actions,
@@ -142,10 +131,8 @@ export class HomePageViewModel extends ViewModelBase implements OnDestroy {
         ofType(topRatedListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      // startWith(topRatedMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$),
     );
 
     this.topRatedMoviesStateStatus = this.toSignal(
@@ -164,10 +151,8 @@ export class HomePageViewModel extends ViewModelBase implements OnDestroy {
         ofType(upcomingMovieListStateError), map(() => StateStatus.error)
       )
     ).pipe(
-      // startWith(upcomingMoviesRef.state.movies.length ? StateStatus.complete : StateStatus.empty),
       distinctUntilChanged(),
       nzScheduler.switchOn(Priority.low),
-      // takeUntil(this._destory$)
     );
 
     this.upcomingMoviesStateStatus = this.toSignal(
@@ -183,9 +168,6 @@ export class HomePageViewModel extends ViewModelBase implements OnDestroy {
 
   override ngOnDestroy(): void {
     super.ngOnDestroy();
-    // this._destory$.next();
-    // this._destory$.complete();
-
     this._store.dispatch(clearNowPlayingMovieListState());
     this._store.dispatch(clearPopularMovieListState());
     this._store.dispatch(clearTopRatedMovieListState());

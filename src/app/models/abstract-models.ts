@@ -11,18 +11,26 @@ export interface RouterStateUrl {
   lastState: RouterStateUrl | null;
 }
 
-export interface AppState {
+export interface AppRootState {
   router: RouterReducerState<RouterStateUrl>
   nowPlayingMovies: MovieListState,
   popularMovies: MovieListState,
   topRatedMovies: MovieListState,
   upcomingMovies: MovieListState,
+}
+
+export interface AppMovieListPageState extends AppRootState {
   customMovieList: MovieListState,
+}
+
+export interface AppMoviePageState extends AppRootState {
   singleMovie: MovieState,
   videos: VideosState,
   cast: CastState,
   relatedMovies: MovieListState
 }
+
+export type AppState = AppRootState & Partial<AppMovieListPageState> & Partial<AppMoviePageState>;
 
 export interface MovieListFetchResultItem {
   adult: boolean;

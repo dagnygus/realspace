@@ -7,6 +7,6 @@ import { BaseStateRef } from "../../models/object-model";
 export class NowPlaingMoviesRef extends BaseStateRef<MovieListState> {
 
   constructor() {
-    super('nowPlayingMovies')
+    super('nowPlayingMovies');
   }
 }

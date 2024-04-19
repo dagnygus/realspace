@@ -9,6 +9,6 @@ export const initialSingleMovieState: MovieState = {
 @Injectable({ providedIn: 'root' })
 export class SingleMovieRef extends BaseStateRef<MovieState> {
   constructor() {
-    super('singleMovie')
+    super('singleMovie');
   }
 }
