@@ -1,10 +1,11 @@
 import { ChangeDetectorRef, DestroyRef, ViewRef, inject, ɵNG_COMP_DEF } from "@angular/core";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
 import { Priority, coercePriority } from "../scheduler/priority";
-import { Subscribable, Unsubscribable, take } from "rxjs";
+import { Observable, Subscribable, Unsubscribable, take } from "rxjs";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
 import { assertNoopZoneEnviroment, } from "../enviroment/enviroment";
 import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_LAST_USED_VIEW, NZ_POTENCIAL_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
+import { createWatch, setActiveConsumer } from "@angular/core/primitives/signals";
 
 declare const ngDevMode: any;
 declare const __noop_zone_globals__: NzGlobalsRef;
@@ -12,10 +13,6 @@ const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
 
 const coalescingScopes = new WeakSet<ChangeDetectorRef>();
 let currentScope: ChangeDetectorRef | null = null;
-
-function _isObject(target: unknown): target is object {
-  return target != null && typeof target === 'object';
-}
 
 export const NOOP_CB = () => {};
 
@@ -65,9 +62,7 @@ export function runInCoalescingScope(scope: ChangeDetectorRef, fn: () => void) {
   coalescingScopes.delete(scope);
 }
 
-
 export function initializeComponent(component: object, priority: Priority = Priority.normal): ChangeDetectorRef {
-
 
   const cdRef = inject(ChangeDetectorRef);
 
@@ -79,13 +74,14 @@ export function initializeComponent(component: object, priority: Priority = Prio
 
   if ((typeof ngDevMode === 'undefined' || ngDevMode)) {
     if ((component.constructor as any)[ɵNG_COMP_DEF] === 'undefined') {
-      throw new Error('Provided instance is not component instance');
+      throw new Error('Provided instance is not component instance!');
     }
   }
 
+  priority = coercePriority(priority);
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.__ContinueCmpInit) {
-    detectChanges(cdRef, priority);
+    internalDetectChanges(cdRef, priority);
   } else {
     nzGlobals[NZ_POTENCIAL_ROOT_CMPS]!.push(component);
     nzGlobals[NZ_SUSPENDED_VIEWS]!.push([cdRef, priority]);
@@ -100,6 +96,20 @@ export interface DetectChangesOptions {
   onDone?: () => void;
 }
 
+export function internalDetectChanges(cdRef: ChangeDetectorRef, priority: Priority) {
+  scheduleCallback(priority, () => {
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig;
+    currentScope = cdRef;
+    try {
+      cdRef.detectChanges();
+    } finally {
+      coalescingScopes.delete(cdRef);
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig;
+      cleanupAfterWork();
+    };
+  });
+}
+
 export function detectChanges(cdRef: ChangeDetectorRef): void
 export function detectChanges(cdRef: ChangeDetectorRef, priority: Priority): void
 export function detectChanges(cdRef: ChangeDetectorRef, options: DetectChangesOptions): void
@@ -107,6 +117,7 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
 
   assertNoopZoneEnviroment();
 
+  if ((cdRef as ViewRef).destroyed || coalescingScopes.has(cdRef)) { return; }
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     cdRef.markForCheck();
 
@@ -131,14 +142,13 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
     priority = options || Priority.normal
   }
 
-  if ((cdRef as ViewRef).destroyed || coalescingScopes.has(cdRef)) { return; }
 
   let abortSubscription: Unsubscribable | null = null;
   let task: ReactSchedulerTask | null = null;
 
   coalescingScopes.add(cdRef);
   task = scheduleCallback(priority, () => {
-    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig
+    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig;
     task = null;
     currentScope = cdRef
     if (abortSubscription) {
@@ -150,7 +160,7 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
     } finally {
       coalescingScopes.delete(cdRef);
       if (onDone) { onDone() }
-      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig
+      nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.WorkRunnig;
       cleanupAfterWork()
     }
   });
@@ -185,11 +195,6 @@ export function detectChangesSync(cdRef: ChangeDetectorRef) {
     cdRef.detectChanges();
   } finally {
     coalescingScopes.delete(cdRef);
-
-    // if ((nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) && !coalescingScopes.has(cdRef)) {
-    //   nzGlobals[NZ_LAST_USED_VIEW] = cdRef;
-    // }
-
     if ((nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig)) {
       nzGlobals[NZ_LAST_USED_VIEW] = cdRef;
     }

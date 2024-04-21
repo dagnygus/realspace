@@ -1,9 +1,9 @@
-import { APP_BOOTSTRAP_LISTENER, APP_INITIALIZER, ComponentRef, Inject, NgModule, NgZone, PLATFORM_ID, ValueProvider, inject, ɵNoopNgZone } from "@angular/core";
+import { APP_BOOTSTRAP_LISTENER, ComponentRef, Inject, NgModule, NgZone, PLATFORM_ID, ValueProvider, inject, ɵNoopNgZone } from "@angular/core";
 import { deinitializeScheduler, forceFrameRate, initializeScheduler, initializeSchedulerForTesting } from "../scheduler/scheduler";
 import { Subject, asapScheduler, filter, observeOn, skipUntil } from "rxjs";
 import { isPlatformServer } from "@angular/common";
 import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_ON_STABLE, NZ_POTENCIAL_ROOT_CMPS, NZ_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
-import { detectChanges } from "../change-detection/change-detection";
+import { internalDetectChanges } from "../change-detection/change-detection";
 
 declare const __noop_zone_globals__: NzGlobalsRef;
 const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];
@@ -75,7 +75,7 @@ function afterBootsrapCallback(): void {
   if (count === rootComponents.length) {
     nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.BootsrapDone;
     for (let i = 0; i < suspendedViews.length; i++) {
-      detectChanges(suspendedViews[i][0], suspendedViews[i][1]);
+      internalDetectChanges(suspendedViews[i][0], suspendedViews[i][1]);
     }
 
     nzGlobals[NZ_ROOT_CMPS] = null;
