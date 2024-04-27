@@ -1,11 +1,9 @@
 import { ChangeDetectorRef, DestroyRef, ViewRef, inject, ɵNG_COMP_DEF } from "@angular/core";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
 import { Priority, coercePriority } from "../scheduler/priority";
-import { Observable, Subscribable, Unsubscribable, take } from "rxjs";
+import { Subscribable, Unsubscribable, take } from "rxjs";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
-import { assertNoopZoneEnviroment, } from "../enviroment/enviroment";
 import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_LAST_USED_VIEW, NZ_POTENCIAL_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
-import { createWatch, setActiveConsumer } from "@angular/core/primitives/signals";
 
 declare const ngDevMode: any;
 declare const __noop_zone_globals__: NzGlobalsRef;
@@ -15,6 +13,13 @@ const coalescingScopes = new WeakSet<ChangeDetectorRef>();
 let currentScope: ChangeDetectorRef | null = null;
 
 export const NOOP_CB = () => {};
+
+function assertEnviroment() {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.__ValidEnv) {
+    return;
+  }
+  throw new Error('INVALID ENVIROMENT!');
+}
 
 function cleanupAfterWork(): void {
 
@@ -115,7 +120,9 @@ export function detectChanges(cdRef: ChangeDetectorRef, priority: Priority): voi
 export function detectChanges(cdRef: ChangeDetectorRef, options: DetectChangesOptions): void
 export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesOptions | Priority) {
 
-  assertNoopZoneEnviroment();
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    assertEnviroment();
+  }
 
   if ((cdRef as ViewRef).destroyed || coalescingScopes.has(cdRef)) { return; }
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
@@ -180,7 +187,9 @@ export function detectChanges(cdRef: ChangeDetectorRef, options?: DetectChangesO
 
 export function detectChangesSync(cdRef: ChangeDetectorRef) {
 
-  assertNoopZoneEnviroment();
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    assertEnviroment();
+  }
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     cdRef.markForCheck();
@@ -204,7 +213,9 @@ export function detectChangesSync(cdRef: ChangeDetectorRef) {
 
 export function scheduleWork(priority: Priority, abort$: Subscribable<void | unknown> | null, work: () => void): void {
 
-  assertNoopZoneEnviroment();
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    assertEnviroment();
+  }
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
     work();
