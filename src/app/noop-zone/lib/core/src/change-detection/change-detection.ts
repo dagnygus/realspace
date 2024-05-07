@@ -102,6 +102,8 @@ export interface DetectChangesOptions {
 }
 
 export function internalDetectChanges(cdRef: ChangeDetectorRef, priority: Priority) {
+  if (coalescingScopes.has(cdRef)) { return; }
+  coalescingScopes.add(cdRef);
   scheduleCallback(priority, () => {
     nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.WorkRunnig;
     currentScope = cdRef;
