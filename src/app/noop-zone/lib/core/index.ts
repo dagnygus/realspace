@@ -1,3 +1,4 @@
+export { assertNoopZoneEnviroment } from './src/assertions/assertions';
 export { detectChanges,
          detectChangesSync,
          initializeComponent,
@@ -12,8 +13,8 @@ export { isSubscribable,
          fromSignal } from './src/utils/utils';
 export { initialNoopZoneTestingEnviroment,
          disposeNoopZoneTestingEnviroment,
-         assertNoopZoneEnviroment,
          patchNgNoopZoneForAngularCdk,
+         provideNoopZoneEnviroment,
          NoopZoneEnviromentModule } from './src/enviroment/enviroment';
 export { IterableChangeTracker,
          IterableChangeTrackerFactory,

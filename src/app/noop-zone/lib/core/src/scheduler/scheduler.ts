@@ -83,6 +83,7 @@ let onUnstable = noopFn;
 let onStable = noopFn;
 let scheduleMicrotask = noopFn;
 let pendingTaskCallbacksCount = 0;
+let schedulerInitCount = 0;
 // let started = false;
 
 function riseOnDoneIfQueueEmpty() {
@@ -401,6 +402,8 @@ function cancelHostTimeout(): void {
 }
 
 function initializeScheduler(): void {
+  schedulerInitCount++;
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchedulerInitilized) { return; }
 
   if (typeof queueMicrotask === 'function') {
     scheduleMicrotask = queueMicrotask;
@@ -560,6 +563,11 @@ function initializeSchedulerForTesting(): void {
 }
 
 function deinitializeScheduler(): void {
+  schedulerInitCount--
+
+  if (schedulerInitCount > 0) {
+    return;
+  }
 
   disposeScheduledWork();
 

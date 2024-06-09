@@ -1,8 +1,7 @@
-import { NgModule } from '@angular/core';
-import { PreloadAllModules, Route, RouterModule, Routes, UrlSegment } from '@angular/router';
+import { Routes, Route, UrlSegment } from '@angular/router';
 import { HomePageComponent } from './pages/home-page/home-page.component';
-import { GENRE_ID_REGEX, MOVIE_CATEGORIES, ROUTER_KIND } from './utils/utils';
 import { PageNotFoundComponent } from './pages/page-not-found/page-not-found.component';
+import { ROUTER_KIND, GENRE_ID_REGEX, MOVIE_CATEGORIES } from './utils/utils';
 
 export const routes: Routes = [
 
@@ -43,9 +42,3 @@ export const routes: Routes = [
     component: PageNotFoundComponent
   }
 ];
-
-// @NgModule({
-//   imports: [RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })],
-//   exports: [RouterModule]
-// })
-// export class AppRoutingModule { }

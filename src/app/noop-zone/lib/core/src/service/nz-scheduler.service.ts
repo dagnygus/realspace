@@ -3,9 +3,9 @@ import { Priority } from "../scheduler/priority";
 import { MonoTypeOperatorFunction, Observable, Observer, Subscription } from "rxjs";
 import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
-import { assertNoopZoneEnviroment } from "../enviroment/enviroment";
 import { internalScheduleWork } from '../change-detection/change-detection';
 import { NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_NOOP_VOID_FN, NZ_ON_DONE, NZ_ON_STABLE, NZ_ON_START, NZ_ON_UNSTABLE, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from '../globals/globals';
+import { assertNoopZoneEnviroment } from "../assertions/assertions";
 
 declare const __noop_zone_globals__: NzGlobalsRef;
 const nzGlobals = __noop_zone_globals__[NZ_GLOBALS];

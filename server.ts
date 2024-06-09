@@ -3,7 +3,7 @@ import { CommonEngine } from '@angular/ssr';
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import AppServerModule from './src/main.server';
+import bootstrap from './src/main.server';
 import { environment } from './src/environments/environment';
 
 // The Express app is exported so that it can be used by serverless Functions.
@@ -31,7 +31,7 @@ export function app(): express.Express {
 
     commonEngine
       .render({
-        bootstrap: AppServerModule,
+        bootstrap: bootstrap,
         documentFilePath: indexHtml,
         url: `${protocol}://${headers.host}${originalUrl}`,
         publicPath: browserDistFolder,

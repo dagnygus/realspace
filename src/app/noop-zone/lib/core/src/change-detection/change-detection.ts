@@ -3,7 +3,8 @@ import { cancelCallback, scheduleCallback } from "../scheduler/scheduler";
 import { Priority, coercePriority } from "../scheduler/priority";
 import { Subscribable, Unsubscribable, take } from "rxjs";
 import { ReactSchedulerTask } from "../scheduler/scheduler-min-heap";
-import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_LAST_USED_VIEW, NZ_POTENCIAL_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
+import { NGZONE_ON_STABLE, NOOP_ZONE_FLAGS, NZ_GLOBALS, NZ_LAST_USED_VIEW, NZ_POTENCIAL_ROOT_CMPS, NZ_ROOT_CMPS, NZ_SUSPENDED_VIEWS, NZ_WORK_DONE_LISTENERS, NzFlags, NzGlobals, NzGlobalsRef } from "../globals/globals";
+import { assertNoopZoneEnviroment } from "../assertions/assertions";
 
 declare const ngDevMode: any;
 declare const __noop_zone_globals__: NzGlobalsRef;
@@ -42,7 +43,7 @@ export function coalesceCurrentWork(): void {
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.WorkRunnig) {
     if (nzGlobals[NZ_LAST_USED_VIEW] == null) {
-      throw new Error('To cheduler current work you need to call datectChangesSync(cdRef) first!');
+      throw new Error('To coalesce current work you need to call datectChangesSync(cdRef) first!');
     }
 
     coalescingScopes.add(nzGlobals[NZ_LAST_USED_VIEW]);
@@ -69,6 +70,10 @@ export function runInCoalescingScope(scope: ChangeDetectorRef, fn: () => void) {
 
 export function initializeComponent(component: object, priority: Priority = Priority.normal): ChangeDetectorRef {
 
+  if (typeof ngDevMode === 'undefined' || ngDevMode) {
+    assertNoopZoneEnviroment();
+  }
+
   const cdRef = inject(ChangeDetectorRef);
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchdulerDisabled) {
@@ -81,6 +86,7 @@ export function initializeComponent(component: object, priority: Priority = Prio
     if ((component.constructor as any)[ɵNG_COMP_DEF] === 'undefined') {
       throw new Error('Provided instance is not component instance!');
     }
+
   }
 
   priority = coercePriority(priority);

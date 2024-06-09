@@ -1,6 +1,8 @@
-import { ChangeDetectorRef, DestroyRef } from "@angular/core";
+import { ChangeDetectorRef, DestroyRef, Type } from "@angular/core";
 import { Subject } from "rxjs";
 import { Priority } from "../scheduler/priority";
+
+let isServer = false;
 
 export const NZ_GLOBALS = Symbol('NZ_GLOBALS');
 
@@ -23,6 +25,7 @@ declare const process: any
 declare const global: any
 declare const window: any;
 declare const globalThis: any;
+declare const __noop_zone_globals__: any
 
 export interface NzGlobals {
   [NOOP_ZONE_FLAGS]: number;
@@ -46,24 +49,26 @@ export interface NzGlobalsRef {
 }
 
 export const enum NzFlags {
-  Noop =                 0b00000000,
-  ModuleImported =       0b00000001,
-  TestMode =             0b00000010,
-  SchedulerInitilized =  0b00000100,
-  BootsrapScheduled =    0b00001000,
-  BootsrapDone =         0b00010000,
-  WorkRunnig =           0b00100000,
-  SchdulerStable =       0b01000000,
-  SchdulerDisabled =     0b10000000,
+  Noop =                 0b000000000,
+  ModuleImported =       0b000000001,
+  StandaloneApp =        0b000000010,
+  TestMode =             0b000000100,
+  SchedulerInitilized =  0b000001000,
+  BootsrapScheduled =    0b000010000,
+  BootsrapDone =         0b000100000,
+  WorkRunnig =           0b001000000,
+  SchdulerStable =       0b010000000,
+  SchdulerDisabled =     0b100000000,
 
-  _SchdulerStableInit =  0b01000100,
+  _SchdulerStableInit =  0b001000100,
 
-  __ContinueCmpInit =    0b00010010,
-  __ValidEnv =           0b00000011
+  __ContinueCmpInit =    0b000100100,
+  __ValidEnv =           0b000000111
 }
 
 const _global = (function () {
   if (typeof process === 'object' && typeof process.versions === 'object' && typeof process.versions.node != null) {
+    isServer = true
     return global || globalThis;
   }
 
@@ -87,12 +92,15 @@ const _nzGlobals = [
   new Subject(),
   new Subject(),
   () => {},
-  (cb: () => void) => { cb(); }
+  (cb: () => void) => { cb(); },
 ]
 
+
+
 Object.defineProperty(_global, '__noop_zone_globals__', {
-  writable: false,
+  writable: isServer,
   value: {
     [NZ_GLOBALS]: _nzGlobals
   }
-})
+});
+
