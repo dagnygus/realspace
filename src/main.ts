@@ -9,5 +9,5 @@ import { appConfig } from './app/app.config';
 NgZone.assertInAngularZone = function() {};
 
 setTimeout(() => {
-  bootstrapApplication(AppComponent, appConfig)
+  bootstrapApplication(AppComponent, appConfig).catch((error) => console.error(error))
 }, 0);
