@@ -11,7 +11,7 @@ export async function waitUntilAllWorkDone(): Promise<void> {
     throw new Error('[waitUntilAllWorkDone()] This function can be used only in testing enviroment!');
   }
 
-  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.ModuleImported) {
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.EnviromentProvided) {
     throw new Error('[waitUntilAllWorkDone()] NoopZoneEnviromentModule detected! Test prevented!');
   }
 

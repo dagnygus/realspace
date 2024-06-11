@@ -1,4 +1,4 @@
-import { APP_BOOTSTRAP_LISTENER, ApplicationConfig, ApplicationRef, ComponentRef, ENVIRONMENT_INITIALIZER, EnvironmentProviders, Inject, InjectionToken, NgModule, NgZone, PLATFORM_ID, Type, ValueProvider, inject, makeEnvironmentProviders, ɵNoopNgZone } from "@angular/core";
+import { APP_BOOTSTRAP_LISTENER, APP_INITIALIZER, ApplicationConfig, ApplicationRef, ComponentRef, ENVIRONMENT_INITIALIZER, EnvironmentProviders, Inject, InjectionToken, Injector, NgModule, NgZone, PLATFORM_ID, Type, ValueProvider, inject, makeEnvironmentProviders, ɵNoopNgZone } from "@angular/core";
 import { deinitializeScheduler, forceFrameRate, initializeScheduler, initializeSchedulerForTesting } from "../scheduler/scheduler";
 import { Subject, asapScheduler, filter, observeOn, skipUntil } from "rxjs";
 import { isPlatformBrowser, isPlatformServer } from "@angular/common";
@@ -18,12 +18,8 @@ export function initialNoopZoneTestingEnviroment(disableScheduler = false): void
     throw new Error('[initialNoopZoneTestingEnviroment(..)] Testing enviroment was not disposed!')
   }
 
-  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.ModuleImported) {
-    throw new Error('[initialNoopZoneTestingEnviroment(..)] NoopZoneEnviromentModule detected! Test prevented!');
-  }
-
-  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.StandaloneApp) {
-    throw new Error('[initialNoopZoneTestingEnviroment(..)] Standalne enviroemnt enabled! Test prevented!');
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.EnviromentProvided) {
+    throw new Error('[initialNoopZoneTestingEnviroment(..)] Application enviroment detected! Test prevented!');
   }
 
   nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.TestMode;
@@ -60,6 +56,11 @@ function bootstrapListener(componentRef: ComponentRef<any>): void {
 
 function afterBootsrapCallback(): void {
   nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.BootsrapScheduled;
+
+  if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.TestMode) {
+    throw new Error('Providing enviroment for applications is forbidden when test mode is enabled!');
+  }
+
   const rootComponents = nzGlobals[NZ_ROOT_CMPS]!;
   const potencialRootComponents = nzGlobals[NZ_POTENCIAL_ROOT_CMPS]!;
   const suspendedViews = nzGlobals[NZ_SUSPENDED_VIEWS]!;
@@ -144,64 +145,16 @@ export function patchNgNoopZoneForAngularCdk(): void {
   }
 }
 
-@NgModule({
-  providers: [
-    {
-    provide: APP_BOOTSTRAP_LISTENER,
-    multi: true,
-    useValue: bootstrapListener
-    },
-    { provide: ENVIROMENT_PROVIDED, useValue: true }
-  ]
-})
-export class NoopZoneEnviromentModule {
-  constructor(ngZone: NgZone, @Inject(PLATFORM_ID) platformId: object, appRef: ApplicationRef) {
-    if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.TestMode) {
-      throw new Error('Importing NoopZoneEnviromentModule is forbidden when test mode is enabled!');
-    }
-
-    if (isPlatformServer(platformId)) {
-      nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.ModuleImported;
-      nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerDisabled;
-      ngZone.onStable.subscribe(nzGlobals[NGZONE_ON_STABLE]);
-      return;
-    }
-
-    if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.StandaloneApp) {
-      throw new Error('Importing NoopZoneEnviromentModule is forbidden when enviroment is enabled for standalone applications')
-    }
-
-    if (!(ngZone instanceof ɵNoopNgZone)) {
-      throw new Error('Application bootstraped with incorrect configuration! provide { ngZone: \'noop\' }!');
-    }
-
-    nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.ModuleImported;
-    nzGlobals[NZ_ROOT_CMPS] ??= [];
-    nzGlobals[NZ_POTENCIAL_ROOT_CMPS] ??= [];
-    nzGlobals[NZ_SUSPENDED_VIEWS] ??= [];
-
-
-    initializeScheduler();
-
-    appRef.onDestroy(() => deinitializeScheduler());
-  }
-}
 
 const DEFAULT_NG_ZONE = new InjectionToken<NgZone>('DEFAULT_NG_ZONE');
 const NOOP_NG_ZONE = new InjectionToken<NgZone>('NOOP_NG_ZONE');
 
-function defaultNgZoneFactoryProvider(): () => NgZone {
-  let ngZone: NgZone | null = null
-  return () => {
-    if (ngZone === null) {
-      ngZone = new NgZone({
-        enableLongStackTrace: typeof ngDevMode === 'undefined' ? false : !!ngDevMode,
-        shouldCoalesceEventChangeDetection: false,
-        shouldCoalesceRunChangeDetection: false,
-      });
-    }
-    return ngZone;
-  }
+function defaultNgZoneFactoryFn(): NgZone {
+  return new NgZone({
+    enableLongStackTrace: typeof ngDevMode === 'undefined' ? false : !!ngDevMode,
+    shouldCoalesceEventChangeDetection: false,
+    shouldCoalesceRunChangeDetection: false,
+  })
 }
 
 function ngZoneFactoryFn(): NgZone {
@@ -215,35 +168,38 @@ function ngZoneFactoryFn(): NgZone {
 export function provideNoopZoneEnviroment(): EnvironmentProviders {
 
   if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.TestMode) {
-    throw new Error('Providing enviroment for standalone applications is forbidden when test mode is enabled!');
+    throw new Error('Providing enviroment for applications is forbidden when test mode is enabled!');
   }
 
   return makeEnvironmentProviders([
-    { provide: DEFAULT_NG_ZONE, useFactory: defaultNgZoneFactoryProvider() },
+    { provide: DEFAULT_NG_ZONE, useFactory: defaultNgZoneFactoryFn },
     { provide: NOOP_NG_ZONE, useClass: ɵNoopNgZone },
     { provide: NgZone, useFactory: ngZoneFactoryFn },
     { provide: ENVIROMENT_PROVIDED, useValue: true },
     { provide: APP_BOOTSTRAP_LISTENER, useValue: bootstrapListener, multi: true },
     {
       provide:  ENVIRONMENT_INITIALIZER,
-      useFactory: () => {
-        const platformId = inject(PLATFORM_ID)
-        const appRef = inject(ApplicationRef)
-        return () => {
-          if (isPlatformServer(platformId)) {
-            nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.StandaloneApp
-            nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerDisabled;
-            return;
-          }
-
-          nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.StandaloneApp
-          nzGlobals[NZ_ROOT_CMPS] ??= [];
-          nzGlobals[NZ_POTENCIAL_ROOT_CMPS] ??= [];
-          nzGlobals[NZ_SUSPENDED_VIEWS] ??= [];
-
-          initializeScheduler();
-          appRef.onDestroy(() => deinitializeScheduler());
+      useValue: () => {
+        const platformId = inject(PLATFORM_ID);
+        const appRef = inject(ApplicationRef);
+        if (appRef.injector !== inject(Injector)) {
+          throw new Error('Providing noop-zone enviroment is allowed at application root level!');
         }
+        nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.EnviromentProvided;
+        if (isPlatformServer(platformId)) {
+          nzGlobals[NOOP_ZONE_FLAGS] |= NzFlags.SchdulerDisabled;
+          return;
+        }
+        nzGlobals[NZ_ROOT_CMPS] ??= [];
+        nzGlobals[NZ_POTENCIAL_ROOT_CMPS] ??= [];
+        nzGlobals[NZ_SUSPENDED_VIEWS] ??= [];
+
+        initializeScheduler();
+        appRef.onDestroy(() => {
+          deinitializeScheduler()
+          if (nzGlobals[NOOP_ZONE_FLAGS] & NzFlags.SchedulerInitilized) { return; }
+          nzGlobals[NOOP_ZONE_FLAGS] ^= NzFlags.EnviromentProvided;
+        });
       },
       multi: true
     }

@@ -1,6 +1,6 @@
 import { DestroyRef, Injector, effect, inject } from '@angular/core';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { InPipeModule, NoopZoneEnviromentModule, NzDetachedViewModule, NzLetModule, NzLocalViewModule, NzScheduler, Priority, detectChanges, initializeComponent, patchNgNoopZoneForAngularCdk } from './noop-zone';
+import { InPipeModule, NzDetachedViewModule, NzLetModule, NzLocalViewModule, NzScheduler, Priority, detectChanges, initializeComponent, patchNgNoopZoneForAngularCdk } from './noop-zone';
 import { asyncScheduler, observeOn, switchMap, take } from 'rxjs';
 import { AppViewModel } from './app.vm';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';

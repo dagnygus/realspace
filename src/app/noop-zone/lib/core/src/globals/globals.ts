@@ -49,21 +49,20 @@ export interface NzGlobalsRef {
 }
 
 export const enum NzFlags {
-  Noop =                 0b000000000,
-  ModuleImported =       0b000000001,
-  StandaloneApp =        0b000000010,
-  TestMode =             0b000000100,
-  SchedulerInitilized =  0b000001000,
-  BootsrapScheduled =    0b000010000,
-  BootsrapDone =         0b000100000,
-  WorkRunnig =           0b001000000,
-  SchdulerStable =       0b010000000,
-  SchdulerDisabled =     0b100000000,
+  Noop =                 0b00000000,
+  EnviromentProvided =   0b00000001,
+  TestMode =             0b00000010,
+  SchedulerInitilized =  0b00000100,
+  BootsrapScheduled =    0b00001000,
+  BootsrapDone =         0b00010000,
+  WorkRunnig =           0b00100000,
+  SchdulerStable =       0b01000000,
+  SchdulerDisabled =     0b10000000,
 
-  _SchdulerStableInit =  0b001000100,
+  _SchdulerStableInit =  0b01000100,
 
-  __ContinueCmpInit =    0b000100100,
-  __ValidEnv =           0b000000111
+  __ContinueCmpInit =    0b00010010,
+  __ValidEnv =           0b00000011
 }
 
 const _global = (function () {

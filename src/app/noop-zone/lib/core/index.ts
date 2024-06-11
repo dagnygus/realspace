@@ -14,8 +14,7 @@ export { isSubscribable,
 export { initialNoopZoneTestingEnviroment,
          disposeNoopZoneTestingEnviroment,
          patchNgNoopZoneForAngularCdk,
-         provideNoopZoneEnviroment,
-         NoopZoneEnviromentModule } from './src/enviroment/enviroment';
+         provideNoopZoneEnviroment } from './src/enviroment/enviroment';
 export { IterableChangeTracker,
          IterableChangeTrackerFactory,
          IterableChangeTrackers,
