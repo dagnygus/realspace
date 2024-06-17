@@ -26,6 +26,7 @@ export interface NzLetConfiguration {
 export interface NzWatchConfiguration {
   defaultPriority?: Priority,
   detach?: boolean,
+  asapCreation?: boolean
 }
 
 export interface NzDetachedViewConfiguration {

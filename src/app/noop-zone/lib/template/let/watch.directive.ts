@@ -13,6 +13,7 @@ export class WatchDirective implements DoCheck, OnInit, OnDestroy {
   private _detach: boolean;
   private _abort$ = new Subject<void>();
   private _scheduled = false;
+  private _asapCreation: boolean;
 
   @Input('watch') priority?: Signal<Priority> | Priority | '';
 
@@ -27,6 +28,7 @@ export class WatchDirective implements DoCheck, OnInit, OnDestroy {
 
     this._priority = config?.defaultPriority ?? Priority.normal;
     this._detach = config?.detach ?? false;
+    this._asapCreation = config?.asapCreation ?? false;
   }
 
   ngDoCheck(): void {
@@ -77,11 +79,23 @@ export class WatchDirective implements DoCheck, OnInit, OnDestroy {
       setActiveConsumer(prevConsumer);
     }
 
-    scheduleWork(priority, this._abort$, () => this._watch!.run());
+    if (this._viewRef === null &&  this._asapCreation) {
 
-    if (!this._viewRef && this.renderCb) {
-      const cb = this.renderCb;
-      scheduleWork(priority, this._abort$, () => cb.next());
+      queueMicrotask(() => {
+        this._watch!.run();
+        if (this.renderCb) {
+          this.renderCb.next()
+        }
+      });
+
+    } else {
+
+      scheduleWork(priority, this._abort$, () => this._watch!.run());
+      if (!this._viewRef && this.renderCb) {
+        const cb = this.renderCb;
+        scheduleWork(priority, this._abort$, () => cb.next());
+      }
+
     }
 
     this._scheduled = true;
