@@ -30,7 +30,7 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
     super();
     const movies$ = _store.pipe(
       select(({ customMovieList }) => customMovieList.movies),
-      nzScheduler.switchOn(Priority.normal)
+      nzScheduler.switchOn(Priority.low)
     );
 
     this.movies = this.toSignal(moviesRef.state.movies, movies$);
