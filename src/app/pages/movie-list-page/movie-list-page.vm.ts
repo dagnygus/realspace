@@ -30,7 +30,7 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
     super();
     const movies$ = _store.pipe(
       select(({ customMovieList }) => customMovieList.movies),
-      nzScheduler.switchOn(Priority.normal)
+      nzScheduler.switchOn(Priority.low)
     );
 
     this.movies = this.toSignal(moviesRef.state.movies, movies$);
@@ -46,7 +46,7 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
       )
     ).pipe(
       distinctUntilChanged(),
-      nzScheduler.switchOn(Priority.low),
+      nzScheduler.switchOn(Priority.normal),
     );
 
     this.isStateExtending = this.toSignal(true, isStateExtending$);
@@ -62,7 +62,7 @@ export class MovieListPageViewModel extends ViewModelBase implements OnDestroy {
       )
     ).pipe(
       distinctUntilChanged(),
-      nzScheduler.switchOn(Priority.low),
+      nzScheduler.switchOn(Priority.normal),
     );
 
     this.isStateReplacing = this.toSignal(false, isStateReplacing$);
